@@ -120,3 +120,11 @@ and the </br> outputFile - *1 2 3 4 5 6 7 8 9 10*. </br>We would also break at t
                         INT_MAX  INT_MAX
                         /    \
                      INT_MAX INT_MAX
+
+**Benchmarks**
+
+(For 1L entries)
+BenchmarkExtMergeSort-4   	       1	1926966295 ns/op	11709112 B/op	  700480 allocs/op
+
+(For 1M entries)
+BenchmarkExtMergeSort-4   	       1	18017683466 ns/op	126568064 B/op	 7000744 allocs/op

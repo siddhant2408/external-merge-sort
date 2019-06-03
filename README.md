@@ -123,8 +123,8 @@ and the </br> outputFile - *1 2 3 4 5 6 7 8 9 10*. </br>We would also break at t
 
 **Benchmarks**
 
-(For 1L entries)
-BenchmarkExtMergeSort-4   	       1	1926966295 ns/op	11709112 B/op	  700480 allocs/op
+*(For 1L entries)* </br>
+BenchmarkExtMergeSort-4 &nbsp;&nbsp; *1* &nbsp;&nbsp;	*1926966295* ns/op	&nbsp;&nbsp; *11709112* B/op &nbsp;&nbsp; *700480* allocs/op </br>
 
-(For 1M entries)
-BenchmarkExtMergeSort-4   	       1	18017683466 ns/op	126568064 B/op	 7000744 allocs/op
+*(For 1M entries)* </br>
+BenchmarkExtMergeSort-4 &nbsp;&nbsp; *1*	&nbsp;&nbsp; *18017683466* ns/op &nbsp;&nbsp; *126568064* B/op &nbsp;&nbsp; *7000744* allocs/op </br>

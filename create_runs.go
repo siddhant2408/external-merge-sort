@@ -35,7 +35,7 @@ func createInitialRuns(inputFile string, runSize int, numRuns int) error {
 }
 
 func getRunFilesArray(numRuns int) ([]*os.File, error) {
-	runFiles := make([]*os.File, 0)
+	runFiles := make([]*os.File, numRuns)
 	for i := 0; i < numRuns; i++ {
 		runFileName := "temp" + strconv.Itoa(i) + ".txt"
 		runFile, err := os.Create(runFileName)
@@ -44,7 +44,7 @@ func getRunFilesArray(numRuns int) ([]*os.File, error) {
 			deleteRunFiles(runFiles)
 			return nil, errors.Wrap(err, "create file")
 		}
-		runFiles = append(runFiles, runFile)
+		runFiles[i] = runFile
 	}
 	return runFiles, nil
 }

@@ -33,13 +33,13 @@ func mergeRuns(outputFile string, numRuns int) error {
 }
 
 func getRunFiles(numRuns int) ([]*os.File, error) {
-	runFiles := make([]*os.File, 0)
+	runFiles := make([]*os.File, numRuns)
 	for i := 0; i < numRuns; i++ {
 		file, err := os.Open("temp" + strconv.Itoa(i) + ".txt")
 		if err != nil {
 			return nil, errors.Wrap(err, "open run file")
 		}
-		runFiles = append(runFiles, file)
+		runFiles[i] = file
 	}
 	return runFiles, nil
 }

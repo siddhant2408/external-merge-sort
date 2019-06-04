@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"container/heap"
-	"fmt"
 	"os"
 	"strconv"
 
@@ -12,9 +11,9 @@ import (
 
 const intMax = 10000000
 
-func mergeRuns(outputFile string, numRuns int) error {
+func mergeRuns(outputFile string, runFiles []*os.File, numRuns int) error {
 	//scanner map contains scanner objects for each run file
-	scannerMap, deleteRunFiles, err := getRunFileScanners(numRuns)
+	scannerMap, deleteRunFiles, err := getRunFileScanners(runFiles)
 	if err != nil {
 		return errors.Wrap(err, "get run file scanners")
 	}
@@ -32,23 +31,7 @@ func mergeRuns(outputFile string, numRuns int) error {
 	return nil
 }
 
-func getRunFiles(numRuns int) ([]*os.File, error) {
-	runFiles := make([]*os.File, numRuns)
-	for i := 0; i < numRuns; i++ {
-		file, err := os.Open("temp" + strconv.Itoa(i) + ".txt")
-		if err != nil {
-			return nil, errors.Wrap(err, "open run file")
-		}
-		runFiles[i] = file
-	}
-	return runFiles, nil
-}
-
-func getRunFileScanners(numRuns int) (map[int]*bufio.Scanner, func(), error) {
-	runFiles, err := getRunFiles(numRuns)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "get run files")
-	}
+func getRunFileScanners(runFiles []*os.File) (map[int]*bufio.Scanner, func(), error) {
 	scannerMap := make(map[int]*bufio.Scanner)
 	for i, file := range runFiles {
 		scanner := bufio.NewScanner(file)
@@ -92,10 +75,17 @@ func processKWayMerge(outputFile string, h *intHeap, scannerMap map[int]*bufio.S
 	}
 	defer outFile.Close()
 
+	// Create a buffered writer (10 KB) for the file
+	bufferedWriter := bufio.NewWriterSize(outFile, 10240)
+
 	//start iterating on runs and write to output file
 	for count := 0; count != numRuns; {
 		poppedEle := heap.Pop(h).(fileHeap)
-		_, err := fmt.Fprintln(outFile, poppedEle.ele)
+		if bufferedWriter.Available() < len([]byte(strconv.Itoa(poppedEle.ele))) {
+			//push the buffered data to file
+			bufferedWriter.Flush()
+		}
+		_, err := bufferedWriter.WriteString(strconv.Itoa(poppedEle.ele) + "\n")
 		if err != nil {
 			return errors.Wrap(err, "add number to out file")
 		}

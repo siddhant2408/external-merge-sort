@@ -123,7 +123,6 @@ and the </br> outputFile - *1 2 3 4 5 6 7 8 9 10*. </br>We would also break at t
 
 **Benchmarks**
 
-**Name** &nbsp;&nbsp; **Runs** &nbsp;&nbsp; **Time Taken** &nbsp;&nbsp; **Memory Consumed** &nbsp;&nbsp; **Allocations** </br>
-
-*(For 1L entries)* </br>
-BenchmarkExtMergeSort-4 &nbsp;&nbsp; *20* &nbsp;&nbsp;	*88639812* ns/op	&nbsp;&nbsp; *16550994* B/op &nbsp;&nbsp; *700387* allocs/op </br>
+| **Input Size**  | **Runs** | **Time Taken** | **Memory Consumed** | **Allocations** |
+| ------------- | ------------- | ------------- | ------------- | ------------- |
+| 1,00,000  | *20* | *88639812* ns/op | *16550994* B/op | *700387* allocs/op|

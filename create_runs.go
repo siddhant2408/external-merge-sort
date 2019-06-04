@@ -7,7 +7,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/pkg/errors"
 )
@@ -54,7 +53,6 @@ func populateRunFiles(inputFile *os.File, runFiles []*os.File, runSize int) erro
 	scanner.Split(bufio.ScanLines)
 	moreInput := true
 	curRunFileIndex := 0
-	var wg sync.WaitGroup
 	for moreInput {
 		arr, isEOFReached, err := getInputFileBatch(scanner, runSize)
 		if err != nil {
@@ -69,32 +67,19 @@ func populateRunFiles(inputFile *os.File, runFiles []*os.File, runSize int) erro
 			break
 		}
 
-		copyArray := make([]int, len(arr))
-		copy(copyArray, arr)
+		//quick sort
+		sort.Ints(arr)
 
-		go func(runFile *os.File, data []int) {
-			wg.Add(1)
-			defer wg.Done()
-			//quick sort
-			sort.Ints(data)
-
-			//condense the array into a single string
-			runFileContent := strings.Trim(strings.Join(strings.Fields(fmt.Sprint(data)), "\n"), "[]")
-			_, err := fmt.Fprintln(runFile, runFileContent)
-			if err != nil {
-				err = errors.Wrap(err, "print to file")
-				fmt.Println(err)
-				return
-			}
-
-			//return the file pointer to the top of the file
-			runFile.Seek(0, 0)
-
-		}(runFiles[curRunFileIndex], copyArray)
-
+		//condense the array into a single string
+		runFileContent := strings.Trim(strings.Join(strings.Fields(fmt.Sprint(arr)), "\n"), "[]")
+		_, err = fmt.Fprintln(runFiles[curRunFileIndex], runFileContent)
+		if err != nil {
+			return errors.Wrap(err, "print to file")
+		}
+		//return the file pointer to the top of the file
+		runFiles[curRunFileIndex].Seek(0, 0)
 		curRunFileIndex++
 	}
-	wg.Wait()
 	return nil
 }
 

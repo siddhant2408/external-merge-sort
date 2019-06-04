@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -34,18 +35,18 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-	fmt.Println("SUCCESS!!!")
 }
 
 func extMergeSort(inputFile string, outputFile string, numRuns int, runSize int) error {
-	err := createInitialRuns(inputFile, runSize, numRuns)
+	start := time.Now()
+	runFiles, err := createRuns(inputFile, runSize, numRuns)
 	if err != nil {
 		return errors.Wrap(err, "create initial runs")
 	}
-	err = mergeRuns(outputFile, numRuns)
+	err = mergeRuns(outputFile, runFiles, numRuns)
 	if err != nil {
 		return errors.Wrap(err, "merge runs")
 	}
+	fmt.Println("Sorted in:", time.Since(start))
 	return nil
 }

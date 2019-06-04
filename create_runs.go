@@ -6,32 +6,32 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/pkg/errors"
 )
 
 //return sorted run files
-func createInitialRuns(inputFile string, runSize int, numRuns int) error {
+func createRuns(inputFile string, runSize int, numRuns int) ([]*os.File, error) {
 	f, err := os.Open(inputFile)
 	if err != nil {
-		return errors.Wrap(err, "open input file")
+		return nil, errors.Wrap(err, "open input file")
 	}
 	defer f.Close()
 
 	runFiles, err := getRunFilesArray(numRuns)
 	if err != nil {
-		return errors.Wrap(err, "get run files array")
+		return nil, errors.Wrap(err, "get run files array")
 	}
 
 	err = populateRunFiles(f, runFiles, runSize)
 	if err != nil {
 		deleteRunFiles(runFiles)
-		return errors.Wrap(err, "populate run files")
+		return nil, errors.Wrap(err, "populate run files")
 	}
-	closeRunFiles(runFiles)
 
-	return nil
+	return runFiles, nil
 }
 
 func getRunFilesArray(numRuns int) ([]*os.File, error) {
@@ -77,15 +77,19 @@ func populateRunFiles(inputFile *os.File, runFiles []*os.File, runSize int) erro
 			defer wg.Done()
 			//quick sort
 			sort.Ints(data)
-			//put the quicksorted array in the run file
-			for _, v := range data {
-				_, err := fmt.Fprintln(runFile, v)
-				if err != nil {
-					err = errors.Wrap(err, "print to file")
-					fmt.Println(err)
-					return
-				}
+
+			//condense the array into a single string
+			runFileContent := strings.Trim(strings.Join(strings.Fields(fmt.Sprint(data)), "\n"), "[]")
+			_, err := fmt.Fprintln(runFile, runFileContent)
+			if err != nil {
+				err = errors.Wrap(err, "print to file")
+				fmt.Println(err)
+				return
 			}
+
+			//return the file pointer to the top of the file
+			runFile.Seek(0, 0)
+
 		}(runFiles[curRunFileIndex], copyArray)
 
 		curRunFileIndex++
@@ -123,14 +127,6 @@ func deleteRunFiles(runFiles []*os.File) {
 	for _, file := range runFiles {
 		if file != nil {
 			os.Remove(file.Name())
-		}
-	}
-}
-
-func closeRunFiles(runFiles []*os.File) {
-	for _, file := range runFiles {
-		if file != nil {
-			file.Close()
 		}
 	}
 }

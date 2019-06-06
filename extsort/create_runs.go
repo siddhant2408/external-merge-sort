@@ -3,28 +3,29 @@ package extsort
 import (
 	"bufio"
 	"io"
-	"io/ioutil"
-	"os"
 
 	"github.com/pkg/errors"
 )
 
 const tempFilePrefix = "exttemp-*"
 
-//CreateReadWriterFunc creates a run file which implements io.ReadWriter
-type CreateReadWriterFunc func() (io.ReadWriter, func() error, error)
-
-func newReadWriter() CreateReadWriterFunc {
-	return func() (io.ReadWriter, func() error, error) {
-		file, err := ioutil.TempFile(os.TempDir(), tempFilePrefix)
-		if err != nil {
-			return nil, nil, errors.Wrap(err, "create temp file")
-		}
-		return file, file.Close, nil
+type runCreator struct {
+	memLimit   int
+	less       Less
+	readWriter interface {
+		create() (rw io.ReadWriter, delete func() error, err error)
 	}
 }
 
-func (e *extSort) createRuns(reader io.Reader) ([]io.ReadWriter, func() error, error) {
+func newRunCreator(memLimit int, less Less) *runCreator {
+	return &runCreator{
+		memLimit:   memLimit,
+		less:       less,
+		readWriter: newReadWriter(),
+	}
+}
+
+func (r *runCreator) createRuns(reader io.Reader) ([]io.ReadWriter, func() error, error) {
 	runFiles := make([]io.ReadWriter, 0)
 	scanner := bufio.NewScanner(reader)
 	scanner.Split(bufio.ScanLines)
@@ -39,6 +40,15 @@ func (e *extSort) createRuns(reader io.Reader) ([]io.ReadWriter, func() error, e
 			continue
 		}
 		data := scanner.Bytes()
+
+
+		heapEle, err := convert(data)
+		if err != nil {
+			
+		}
+		h.push()
+		
+		
 		e.heap.Push(data)
 		heapSize += len(data)
 		if heapSize > e.memLimit {

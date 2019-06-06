@@ -2,7 +2,6 @@
 package extsort
 
 import (
-	"container/heap"
 	"io"
 	"os"
 
@@ -14,27 +13,29 @@ type Sorter interface {
 	Sort(srcFile string, dstFile string) error
 }
 
+//Less determines the lesser of the two byte arrays
+type Less func(a, b []byte) (bool, error)
+
 type extSort struct {
-	memLimit int
-	heap     heap.Interface
-	runFunc  CreateReadWriterFunc
+	runCreator interface {
+		createRuns(reader io.Reader) ([]io.ReadWriter, func() error, error)
+	}
+	runMerger interface {
+		mergeRuns(runs []io.ReadWriter, dst io.Writer) error
+	}
 }
 
 //New returns the interface for external sort
-func New(memLimit int, heap heap.Interface, runFunc CreateReadWriterFunc) (Sorter, error) {
+func New(memLimit int, less Less) (Sorter, error) {
 	if memLimit == 0 {
-		memLimit = 1 << 32
+		return nil, errors.New("invalid mem limit")
 	}
-	if runFunc == nil {
-		runFunc = newReadWriter()
-	}
-	if heap == nil {
-		return nil, errors.New("invalid heap option")
+	if less == nil {
+		return nil, errors.New("nil less func")
 	}
 	return &extSort{
-		memLimit: memLimit,
-		heap:     heap,
-		runFunc:  runFunc,
+		runCreator: newRunCreator(memLimit, less),
+		runMerger:  newRunMerger(less),
 	}, nil
 }
 
@@ -59,12 +60,12 @@ func (e *extSort) Sort(srcFile string, dstFile string) error {
 }
 
 func (e *extSort) sort(src io.Reader, dst io.Writer) error {
-	runs, deleteRuns, err := e.createRuns(src)
+	runs, deleteRuns, err := e.runCreator.createRuns(src)
 	if err != nil {
 		return errors.Wrap(err, "create runs")
 	}
 	defer deleteRuns()
-	err = e.mergeRuns(runs, dst)
+	err = e.runMerger.mergeRuns(runs, dst)
 	if err != nil {
 		return errors.Wrap(err, "merge runs")
 	}

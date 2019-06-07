@@ -1,9 +1,9 @@
-package main
+package extsort
 
 import (
 	"bufio"
 	"container/heap"
-	"os"
+	"io"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -11,43 +11,51 @@ import (
 
 const intMax = 10000000
 
-func mergeRuns(outputFile string, runFiles []*os.File, numRuns int) error {
-	//scanner map contains scanner objects for each run file
-	scannerMap, deleteRunFiles, err := getRunFileScanners(runFiles)
-	if err != nil {
-		return errors.Wrap(err, "get run file scanners")
-	}
-	defer deleteRunFiles()
+type runMerger struct{}
 
-	h, err := initiateHeap(scannerMap, numRuns)
-	if err != nil {
-		return errors.Wrap(err, "initiate heap")
-	}
+func newRunMerger() *runMerger {
+	return &runMerger{}
+}
 
-	err = processKWayMerge(outputFile, h, scannerMap, numRuns)
+func (r *runMerger) mergeRuns(runs []io.ReadWriter, dst io.Writer) error {
+	//ignore merge phase for only one run
+	if len(runs) == 1 {
+		_, err := io.Copy(dst, runs[0])
+		if err != nil {
+			return errors.Wrap(err, "write to dst")
+		}
+		return nil
+	}
+	scannerMap, err := r.getRunIterators(runs)
 	if err != nil {
-		return errors.Wrap(err, "write to output file")
+		return errors.Wrap(err, "get run iterators")
+	}
+	h, err := r.initiateHeap(scannerMap)
+	if err != nil {
+		return errors.Wrap(err, "initiate merge heap")
+	}
+	err = r.processKWayMerge(dst, h, scannerMap)
+	if err != nil {
+		return errors.Wrap(err, "k-way merge")
 	}
 	return nil
 }
 
-func getRunFileScanners(runFiles []*os.File) (map[int]*bufio.Scanner, func(), error) {
-	scannerMap := make(map[int]*bufio.Scanner)
+func (r *runMerger) getRunIterators(runFiles []io.ReadWriter) (map[int]*bufio.Scanner, error) {
+	scannerMap := make(map[int]*bufio.Scanner, len(runFiles))
 	for i, file := range runFiles {
 		scanner := bufio.NewScanner(file)
 		scanner.Split(bufio.ScanLines)
 		scannerMap[i] = scanner
 	}
-	return scannerMap, func() {
-		deleteRunFiles(runFiles)
-	}, nil
+	return scannerMap, nil
 }
 
 //create a heap with top(min) values from each run
-func initiateHeap(scannerMap map[int]*bufio.Scanner, numRuns int) (*intHeap, error) {
+func (r *runMerger) initiateHeap(scannerMap map[int]*bufio.Scanner) (heap.Interface, error) {
 	h := &intHeap{}
 	heap.Init(h)
-	for i := 0; i < numRuns; i++ {
+	for i := 0; i < len(scannerMap); i++ {
 		scanner := scannerMap[i]
 		scanned := scanner.Scan()
 		if !scanned {
@@ -68,18 +76,12 @@ func initiateHeap(scannerMap map[int]*bufio.Scanner, numRuns int) (*intHeap, err
 	return h, nil
 }
 
-func processKWayMerge(outputFile string, h *intHeap, scannerMap map[int]*bufio.Scanner, numRuns int) error {
-	outFile, err := os.OpenFile(outputFile, os.O_RDWR|os.O_CREATE, 0755)
-	if err != nil {
-		return errors.Wrap(err, "open output file")
-	}
-	defer outFile.Close()
-
+func (r *runMerger) processKWayMerge(dst io.Writer, h heap.Interface, scannerMap map[int]*bufio.Scanner) error {
 	// Create a buffered writer (10 KB) for the file
-	bufferedWriter := bufio.NewWriterSize(outFile, 10240)
+	bufferedWriter := bufio.NewWriterSize(dst, 10240)
 
 	//start iterating on runs and write to output file
-	for count := 0; count != numRuns; {
+	for count := 0; count != len(scannerMap); {
 		poppedEle := heap.Pop(h).(fileHeap)
 		if bufferedWriter.Available() < len([]byte(strconv.Itoa(poppedEle.ele))) {
 			//push the buffered data to file
@@ -93,8 +95,9 @@ func processKWayMerge(outputFile string, h *intHeap, scannerMap map[int]*bufio.S
 		scanner := scannerMap[poppedEle.fileIndex]
 		scanned := scanner.Scan()
 		if !scanned {
-			if scanner.Err() != nil {
-				return errors.Wrap(scanner.Err(), "scan file")
+			err := scanner.Err()
+			if err != nil {
+				return errors.Wrap(err, "scan file")
 			}
 			//EOF reached
 			heap.Push(h, fileHeap{

@@ -1,4 +1,4 @@
-package main
+package extsort
 
 type fileHeap struct {
 	ele       int

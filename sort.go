@@ -1,4 +1,3 @@
-//Package extsort provides interface for sorting extremely large files that cannot be loaded in memory all at once.
 package extsort
 
 import (
@@ -18,7 +17,7 @@ type Less func(a, b []byte) (bool, error)
 
 type extSort struct {
 	runCreator interface {
-		createRuns(reader io.Reader) ([]io.ReadWriter, func() error, error)
+		createRuns(reader io.Reader) ([]io.ReadWriter, []func() error, error)
 	}
 	runMerger interface {
 		mergeRuns(runs []io.ReadWriter, dst io.Writer) error
@@ -26,16 +25,13 @@ type extSort struct {
 }
 
 //New returns the interface for external sort
-func New(memLimit int, less Less) (Sorter, error) {
+func New(memLimit int) (Sorter, error) {
 	if memLimit == 0 {
 		return nil, errors.New("invalid mem limit")
 	}
-	if less == nil {
-		return nil, errors.New("nil less func")
-	}
 	return &extSort{
-		runCreator: newRunCreator(memLimit, less),
-		runMerger:  newRunMerger(less),
+		runCreator: newRunCreator(memLimit),
+		runMerger:  newRunMerger(),
 	}, nil
 }
 
@@ -64,7 +60,7 @@ func (e *extSort) sort(src io.Reader, dst io.Writer) error {
 	if err != nil {
 		return errors.Wrap(err, "create runs")
 	}
-	defer deleteRuns()
+	defer deleteCreatedRuns(deleteRuns)
 	err = e.runMerger.mergeRuns(runs, dst)
 	if err != nil {
 		return errors.Wrap(err, "merge runs")

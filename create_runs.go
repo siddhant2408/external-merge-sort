@@ -1,117 +1,106 @@
-package main
+package extsort
 
 import (
 	"bufio"
+	"container/heap"
 	"fmt"
-	"os"
-	"sort"
+	"io"
 	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
 )
 
-//return sorted run files
-func createRuns(inputFile string, runSize int, numRuns int) ([]*os.File, error) {
-	f, err := os.Open(inputFile)
-	if err != nil {
-		return nil, errors.Wrap(err, "open input file")
-	}
-	defer f.Close()
+const tempFilePrefix = "exttemp-*"
 
-	runFiles, err := getRunFilesArray(numRuns)
-	if err != nil {
-		return nil, errors.Wrap(err, "get run files array")
+type runCreator struct {
+	memLimit   int
+	readWriter interface {
+		create() (io.ReadWriter, func() error, error)
 	}
-
-	err = populateRunFiles(f, runFiles, runSize)
-	if err != nil {
-		deleteRunFiles(runFiles)
-		return nil, errors.Wrap(err, "populate run files")
-	}
-
-	return runFiles, nil
 }
 
-func getRunFilesArray(numRuns int) ([]*os.File, error) {
-	runFiles := make([]*os.File, numRuns)
-	for i := 0; i < numRuns; i++ {
-		runFileName := "temp" + strconv.Itoa(i) + ".txt"
-		runFile, err := os.Create(runFileName)
-		if err != nil {
-			//delete already created run files
-			deleteRunFiles(runFiles)
-			return nil, errors.Wrap(err, "create file")
-		}
-		runFiles[i] = runFile
+func newRunCreator(memLimit int) *runCreator {
+	return &runCreator{
+		memLimit:   memLimit,
+		readWriter: newReadWriter(),
 	}
-	return runFiles, nil
 }
 
-func populateRunFiles(inputFile *os.File, runFiles []*os.File, runSize int) error {
-	scanner := bufio.NewScanner(inputFile)
+func (r *runCreator) createRuns(reader io.Reader) ([]io.ReadWriter, []func() error, error) {
+	runs := make([]io.ReadWriter, 0)
+	deleteRuns := make([]func() error, 0)
+	scanner := bufio.NewScanner(reader)
 	scanner.Split(bufio.ScanLines)
-	moreInput := true
-	curRunFileIndex := 0
-	for moreInput {
-		arr, isEOFReached, err := getInputFileBatch(scanner, runSize)
+	//initiate heap
+	h := &intHeap{}
+	heap.Init(h)
+	//create runs
+	isEOF := false
+	var err error
+	for !isEOF {
+		//populate heap
+		isEOF, err = r.populateHeap(h, scanner)
 		if err != nil {
-			return errors.Wrap(err, "get file contents")
+			deleteCreatedRuns(deleteRuns)
+			return nil, nil, errors.Wrap(err, "populate heap")
 		}
-		//this can happen in two ways, either you encountered EOF at the start only
-		//or the input stopped before reaching run size
-		if isEOFReached {
-			moreInput = false
-		}
-		if len(arr) == 0 {
+		if h.Len() == 0 {
 			break
 		}
-
-		//quick sort
-		sort.Ints(arr)
-
-		//condense the array into a single string
-		runFileContent := strings.Trim(strings.Join(strings.Fields(fmt.Sprint(arr)), "\n"), "[]")
-		_, err = fmt.Fprintln(runFiles[curRunFileIndex], runFileContent)
+		run, delete, err := r.flushHeapToRun(h)
 		if err != nil {
-			return errors.Wrap(err, "print to file")
+			return nil, nil, errors.Wrap(err, "flush heap")
 		}
-		//return the file pointer to the top of the file
-		runFiles[curRunFileIndex].Seek(0, 0)
-		curRunFileIndex++
+		runs = append(runs, run)
+		deleteRuns = append(deleteRuns, delete)
 	}
-	return nil
+	return runs, deleteRuns, nil
 }
 
-//read from input file till runsize and put in array
-//assumes every input is an integer
-func getInputFileBatch(scanner *bufio.Scanner, runSize int) ([]int, bool, error) {
-	arr := make([]int, 0)
-	isEOFReached := false
-	for i := 0; i < runSize; i++ {
+func (r *runCreator) populateHeap(h heap.Interface, scanner *bufio.Scanner) (bool, error) {
+	heapMemSize := 0
+	for {
 		scanned := scanner.Scan()
 		if !scanned {
 			if scanner.Err() != nil {
-				return nil, isEOFReached, errors.Wrap(scanner.Err(), "scan file")
+				return false, errors.Wrap(scanner.Err(), "read from input")
 			}
-			//scanner.Err() returns nil error for EOF
-			isEOFReached = true
-			//return array read till now
-			return arr, isEOFReached, nil
+			return true, nil
 		}
-		num, err := strconv.Atoi(scanner.Text())
+		data := scanner.Text()
+		num, err := strconv.Atoi(data)
 		if err != nil {
-			return nil, isEOFReached, errors.Wrap(err, "convert string to int")
+			return false, errors.Wrap(err, "convert string to int")
 		}
-		arr = append(arr, num)
+		heap.Push(h, num)
+		heapMemSize += len(data)
+		if heapMemSize > r.memLimit {
+			return false, nil
+		}
 	}
-	return arr, isEOFReached, nil
 }
 
-func deleteRunFiles(runFiles []*os.File) {
-	for _, file := range runFiles {
-		if file != nil {
-			os.Remove(file.Name())
-		}
+func (r *runCreator) flushHeapToRun(h heap.Interface) (io.ReadWriter, func() error, error) {
+	//New allocation each time. Use buffer pool
+	b := new(strings.Builder)
+	for h.Len() != 0 {
+		b.WriteString(strconv.Itoa(heap.Pop(h).(int)))
+	}
+	run, delete, err := r.readWriter.create()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "create read writer")
+	}
+	_, err = fmt.Fprintln(run, b.String())
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "print to file")
+	}
+	return run, delete, nil
+}
+
+func deleteCreatedRuns(deleteFuncs []func() error) {
+	for _, deleteRun := range deleteFuncs {
+		//even if error occurs, no problem as it will be in temp directory
+		_ = deleteRun()
 	}
 }

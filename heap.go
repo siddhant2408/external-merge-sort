@@ -1,11 +1,11 @@
-package extsort
+package main
 
-type fileHeap struct {
-	ele       int
-	fileIndex int
+type runHeap struct {
+	ele      int
+	runIndex int
 }
 
-type intHeap []fileHeap
+type intHeap []*runHeap
 
 func (h intHeap) Len() int           { return len(h) }
 func (h intHeap) Less(i, j int) bool { return h[i].ele < h[j].ele }
@@ -14,7 +14,7 @@ func (h intHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
 func (h *intHeap) Push(x interface{}) {
 	// Push and Pop use pointer receivers because they modify the slice's length,
 	// not just its contents.
-	*h = append(*h, x.(fileHeap))
+	*h = append(*h, x.(*runHeap))
 }
 
 func (h *intHeap) Pop() interface{} {

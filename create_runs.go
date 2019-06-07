@@ -1,4 +1,4 @@
-package extsort
+package main
 
 import (
 	"bufio"
@@ -7,6 +7,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -16,7 +17,7 @@ const tempFilePrefix = "exttemp-*"
 type runCreator struct {
 	memLimit   int
 	readWriter interface {
-		create() (io.ReadWriter, func() error, error)
+		create() (reader io.ReadWriter, deleteFunc func() error, resetFunc func() error, err error)
 	}
 }
 
@@ -40,6 +41,7 @@ func (r *runCreator) createRuns(reader io.Reader) ([]io.ReadWriter, []func() err
 	var err error
 	for !isEOF {
 		//populate heap
+		populate := time.Now()
 		isEOF, err = r.populateHeap(h, scanner)
 		if err != nil {
 			deleteCreatedRuns(deleteRuns)
@@ -48,12 +50,20 @@ func (r *runCreator) createRuns(reader io.Reader) ([]io.ReadWriter, []func() err
 		if h.Len() == 0 {
 			break
 		}
-		run, delete, err := r.flushHeapToRun(h)
+		fmt.Println(time.Since(populate))
+		flush := time.Now()
+		run, delete, reset, err := r.flushHeapToRun(h)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "flush heap")
 		}
+		fmt.Println(time.Since(flush))
 		runs = append(runs, run)
 		deleteRuns = append(deleteRuns, delete)
+		err = reset()
+		if err != nil {
+			deleteCreatedRuns(deleteRuns)
+			return nil, nil, errors.Wrap(err, "reset run")
+		}
 	}
 	return runs, deleteRuns, nil
 }
@@ -73,7 +83,9 @@ func (r *runCreator) populateHeap(h heap.Interface, scanner *bufio.Scanner) (boo
 		if err != nil {
 			return false, errors.Wrap(err, "convert string to int")
 		}
-		heap.Push(h, num)
+		heap.Push(h, &runHeap{
+			ele: num,
+		})
 		heapMemSize += len(data)
 		if heapMemSize > r.memLimit {
 			return false, nil
@@ -81,21 +93,23 @@ func (r *runCreator) populateHeap(h heap.Interface, scanner *bufio.Scanner) (boo
 	}
 }
 
-func (r *runCreator) flushHeapToRun(h heap.Interface) (io.ReadWriter, func() error, error) {
+func (r *runCreator) flushHeapToRun(h heap.Interface) (reader io.ReadWriter, deleteFunc func() error, resetFunc func() error, err error) {
 	//New allocation each time. Use buffer pool
 	b := new(strings.Builder)
 	for h.Len() != 0 {
-		b.WriteString(strconv.Itoa(heap.Pop(h).(int)))
+		poppedEle, _ := heap.Pop(h).(*runHeap)
+		b.WriteString(strconv.Itoa(poppedEle.ele))
+		b.WriteString("\n")
 	}
-	run, delete, err := r.readWriter.create()
+	run, delete, reset, err := r.readWriter.create()
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "create read writer")
+		return nil, nil, nil, errors.Wrap(err, "create read writer")
 	}
 	_, err = fmt.Fprintln(run, b.String())
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "print to file")
+		return nil, nil, nil, errors.Wrap(err, "print to file")
 	}
-	return run, delete, nil
+	return run, delete, reset, nil
 }
 
 func deleteCreatedRuns(deleteFuncs []func() error) {

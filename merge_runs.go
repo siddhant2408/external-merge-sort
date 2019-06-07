@@ -1,4 +1,4 @@
-package extsort
+package main
 
 import (
 	"bufio"
@@ -68,9 +68,9 @@ func (r *runMerger) initiateHeap(scannerMap map[int]*bufio.Scanner) (heap.Interf
 		if err != nil {
 			return nil, errors.Wrap(err, "convert string to int")
 		}
-		heap.Push(h, fileHeap{
-			ele:       num,
-			fileIndex: i,
+		heap.Push(h, &runHeap{
+			ele:      num,
+			runIndex: i,
 		})
 	}
 	return h, nil
@@ -82,7 +82,7 @@ func (r *runMerger) processKWayMerge(dst io.Writer, h heap.Interface, scannerMap
 
 	//start iterating on runs and write to output file
 	for count := 0; count != len(scannerMap); {
-		poppedEle := heap.Pop(h).(fileHeap)
+		poppedEle := heap.Pop(h).(*runHeap)
 		if bufferedWriter.Available() < len([]byte(strconv.Itoa(poppedEle.ele))) {
 			//push the buffered data to file
 			bufferedWriter.Flush()
@@ -92,7 +92,7 @@ func (r *runMerger) processKWayMerge(dst io.Writer, h heap.Interface, scannerMap
 			return errors.Wrap(err, "add number to out file")
 		}
 		//get the next element from the popped element file and add to heap
-		scanner := scannerMap[poppedEle.fileIndex]
+		scanner := scannerMap[poppedEle.runIndex]
 		scanned := scanner.Scan()
 		if !scanned {
 			err := scanner.Err()
@@ -100,16 +100,16 @@ func (r *runMerger) processKWayMerge(dst io.Writer, h heap.Interface, scannerMap
 				return errors.Wrap(err, "scan file")
 			}
 			//EOF reached
-			heap.Push(h, fileHeap{
+			heap.Push(h, &runHeap{
 				ele: intMax,
 			})
 			count++
 			continue
 		}
 		num, _ := strconv.Atoi(scanner.Text())
-		heap.Push(h, fileHeap{
-			ele:       num,
-			fileIndex: poppedEle.fileIndex,
+		heap.Push(h, &runHeap{
+			ele:      num,
+			runIndex: poppedEle.runIndex,
 		})
 	}
 	return nil

@@ -4,17 +4,20 @@ import (
 	"bufio"
 	"container/heap"
 	"io"
-	"strconv"
 
 	"github.com/pkg/errors"
 )
 
-const intMax = 10000000
+type runMerger struct {
+	less      LessFunc
+	converter InputConverter
+}
 
-type runMerger struct{}
-
-func newRunMerger() *runMerger {
-	return &runMerger{}
+func newRunMerger(less LessFunc, converter InputConverter) *runMerger {
+	return &runMerger{
+		less:      less,
+		converter: converter,
+	}
 }
 
 func (r *runMerger) mergeRuns(runs []io.ReadWriter, dst io.Writer) error {
@@ -53,7 +56,10 @@ func (r *runMerger) getRunIterators(runFiles []io.ReadWriter) (map[int]*bufio.Sc
 
 //create a heap with top(min) values from each run
 func (r *runMerger) initiateHeap(scannerMap map[int]*bufio.Scanner) (heap.Interface, error) {
-	h := &intHeap{}
+	h := &mergeHeap{
+		heapData: make([]*heapData, 0),
+		less:     r.less,
+	}
 	heap.Init(h)
 	for i := 0; i < len(scannerMap); i++ {
 		scanner := scannerMap[i]
@@ -64,13 +70,13 @@ func (r *runMerger) initiateHeap(scannerMap map[int]*bufio.Scanner) (heap.Interf
 			}
 			return nil, errors.New("empty file")
 		}
-		num, err := strconv.Atoi(scanner.Text())
+		input, err := r.converter.ToStructured(scanner.Bytes())
 		if err != nil {
 			return nil, errors.Wrap(err, "convert string to int")
 		}
-		heap.Push(h, &runHeap{
-			ele:      num,
-			runIndex: i,
+		heap.Push(h, &heapData{
+			data:  input,
+			runID: i,
 		})
 	}
 	return h, nil
@@ -78,21 +84,28 @@ func (r *runMerger) initiateHeap(scannerMap map[int]*bufio.Scanner) (heap.Interf
 
 func (r *runMerger) processKWayMerge(dst io.Writer, h heap.Interface, scannerMap map[int]*bufio.Scanner) error {
 	// Create a buffered writer (10 KB) for the file
-	bufferedWriter := bufio.NewWriterSize(dst, 10240)
-
+	bufferedWriter := bufio.NewWriterSize(dst, 65536)
 	//start iterating on runs and write to output file
 	for count := 0; count != len(scannerMap); {
-		poppedEle := heap.Pop(h).(*runHeap)
-		if bufferedWriter.Available() < len([]byte(strconv.Itoa(poppedEle.ele))) {
+		poppedEle := heap.Pop(h).(*heapData)
+		byteData, _ := r.converter.ToBytes(poppedEle.data)
+		if bufferedWriter.Available() < len(byteData) {
 			//push the buffered data to file
-			bufferedWriter.Flush()
+			err := bufferedWriter.Flush()
+			if err != nil {
+				return errors.Wrap(err, "flush to output")
+			}
 		}
-		_, err := bufferedWriter.WriteString(strconv.Itoa(poppedEle.ele) + "\n")
+		_, err := bufferedWriter.Write(byteData)
+		if err != nil {
+			return errors.Wrap(err, "add number to out file")
+		}
+		_, err = bufferedWriter.WriteString("\n")
 		if err != nil {
 			return errors.Wrap(err, "add number to out file")
 		}
 		//get the next element from the popped element file and add to heap
-		scanner := scannerMap[poppedEle.runIndex]
+		scanner := scannerMap[poppedEle.runID]
 		scanned := scanner.Scan()
 		if !scanned {
 			err := scanner.Err()
@@ -100,16 +113,19 @@ func (r *runMerger) processKWayMerge(dst io.Writer, h heap.Interface, scannerMap
 				return errors.Wrap(err, "scan file")
 			}
 			//EOF reached
-			heap.Push(h, &runHeap{
-				ele: intMax,
+			heap.Push(h, &heapData{
+				data: nil,
 			})
 			count++
 			continue
 		}
-		num, _ := strconv.Atoi(scanner.Text())
-		heap.Push(h, &runHeap{
-			ele:      num,
-			runIndex: poppedEle.runIndex,
+		runData, err := r.converter.ToStructured(scanner.Bytes())
+		if err != nil {
+			return errors.Wrap(err, "get run data")
+		}
+		heap.Push(h, &heapData{
+			data:  runData,
+			runID: poppedEle.runID,
 		})
 	}
 	return nil

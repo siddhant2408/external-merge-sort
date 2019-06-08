@@ -2,11 +2,10 @@ package main
 
 import (
 	"bufio"
-	"container/heap"
+	"bytes"
 	"fmt"
 	"io"
-	"strconv"
-	"strings"
+	"sort"
 	"time"
 
 	"github.com/pkg/errors"
@@ -16,14 +15,18 @@ const tempFilePrefix = "exttemp-*"
 
 type runCreator struct {
 	memLimit   int
+	less       LessFunc
+	converter  InputConverter
 	readWriter interface {
 		create() (reader io.ReadWriter, deleteFunc func() error, resetFunc func() error, err error)
 	}
 }
 
-func newRunCreator(memLimit int) *runCreator {
+func newRunCreator(memLimit int, less LessFunc, converter InputConverter) *runCreator {
 	return &runCreator{
 		memLimit:   memLimit,
+		less:       less,
+		converter:  converter,
 		readWriter: newReadWriter(),
 	}
 }
@@ -33,30 +36,34 @@ func (r *runCreator) createRuns(reader io.Reader) ([]io.ReadWriter, []func() err
 	deleteRuns := make([]func() error, 0)
 	scanner := bufio.NewScanner(reader)
 	scanner.Split(bufio.ScanLines)
-	//initiate heap
-	h := &intHeap{}
-	heap.Init(h)
 	//create runs
 	isEOF := false
+	var chunk []interface{}
 	var err error
 	for !isEOF {
-		//populate heap
 		populate := time.Now()
-		isEOF, err = r.populateHeap(h, scanner)
+		chunk, isEOF, err = r.getChunk(scanner)
 		if err != nil {
 			deleteCreatedRuns(deleteRuns)
 			return nil, nil, errors.Wrap(err, "populate heap")
 		}
-		if h.Len() == 0 {
+		if len(chunk) == 0 {
 			break
 		}
-		fmt.Println(time.Since(populate))
+		sort.Slice(chunk, func(i, j int) bool {
+			isLess, err := r.less(chunk[i], chunk[j])
+			if err != nil {
+				panic(err)
+			}
+			return isLess
+		})
+		fmt.Println("populate time: ", time.Since(populate))
 		flush := time.Now()
-		run, delete, reset, err := r.flushHeapToRun(h)
+		run, delete, reset, err := r.flushToRun(chunk)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "flush heap")
 		}
-		fmt.Println(time.Since(flush))
+		fmt.Println("flush time: ", time.Since(flush))
 		runs = append(runs, run)
 		deleteRuns = append(deleteRuns, delete)
 		err = reset()
@@ -68,46 +75,54 @@ func (r *runCreator) createRuns(reader io.Reader) ([]io.ReadWriter, []func() err
 	return runs, deleteRuns, nil
 }
 
-func (r *runCreator) populateHeap(h heap.Interface, scanner *bufio.Scanner) (bool, error) {
+func (r *runCreator) getChunk(scanner *bufio.Scanner) ([]interface{}, bool, error) {
 	heapMemSize := 0
+	arr := make([]interface{}, 0)
 	for {
 		scanned := scanner.Scan()
 		if !scanned {
 			if scanner.Err() != nil {
-				return false, errors.Wrap(scanner.Err(), "read from input")
+				return nil, false, errors.Wrap(scanner.Err(), "read from input")
 			}
-			return true, nil
+			return arr, true, nil
 		}
-		data := scanner.Text()
-		num, err := strconv.Atoi(data)
+		line := scanner.Bytes()
+		runData, err := r.converter.ToStructured(line)
 		if err != nil {
-			return false, errors.Wrap(err, "convert string to int")
+			return nil, false, errors.Wrap(err, "convert string to int")
 		}
-		heap.Push(h, &runHeap{
-			ele: num,
-		})
-		heapMemSize += len(data)
+		arr = append(arr, runData)
+		heapMemSize += len(line)
 		if heapMemSize > r.memLimit {
-			return false, nil
+			return arr, false, nil
 		}
 	}
 }
 
-func (r *runCreator) flushHeapToRun(h heap.Interface) (reader io.ReadWriter, deleteFunc func() error, resetFunc func() error, err error) {
+func (r *runCreator) flushToRun(chunk []interface{}) (reader io.ReadWriter, deleteFunc func() error, resetFunc func() error, err error) {
 	//New allocation each time. Use buffer pool
-	b := new(strings.Builder)
-	for h.Len() != 0 {
-		poppedEle, _ := heap.Pop(h).(*runHeap)
-		b.WriteString(strconv.Itoa(poppedEle.ele))
-		b.WriteString("\n")
+	b := new(bytes.Buffer)
+	for _, v := range chunk {
+		byteData, ok := r.converter.ToBytes(v)
+		if !ok {
+			return nil, nil, nil, errors.New("convert to bytes")
+		}
+		_, err := b.Write(byteData)
+		if err != nil {
+			return nil, nil, nil, errors.Wrap(err, "write to buffer")
+		}
+		_, err = b.WriteString("\n")
+		if err != nil {
+			return nil, nil, nil, errors.Wrap(err, "write new line")
+		}
 	}
 	run, delete, reset, err := r.readWriter.create()
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "create read writer")
 	}
-	_, err = fmt.Fprintln(run, b.String())
+	_, err = b.WriteTo(run)
 	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "print to file")
+		return nil, nil, nil, errors.Wrap(err, "write to run")
 	}
 	return run, delete, reset, nil
 }

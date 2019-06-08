@@ -128,5 +128,11 @@ func (r *runMerger) processKWayMerge(dst io.Writer, h heap.Interface, scannerMap
 			runID: poppedEle.runID,
 		})
 	}
+	if bufferedWriter.Buffered() > 0 {
+		err := bufferedWriter.Flush()
+		if err != nil {
+			return errors.Wrap(err, "flush remaining buffer")
+		}
+	}
 	return nil
 }

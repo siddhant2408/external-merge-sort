@@ -2,7 +2,7 @@ package main
 
 type runSorter struct {
 	data []interface{}
-	less LessFunc
+	less func(a, b interface{}) (bool, error)
 }
 
 func (r *runSorter) Len() int {

@@ -7,7 +7,7 @@ type heapData struct {
 
 type mergeHeap struct {
 	heapData []*heapData
-	less     LessFunc
+	less     func(a, b interface{}) (bool, error)
 }
 
 func (h *mergeHeap) Len() int { return len(h.heapData) }

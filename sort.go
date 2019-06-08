@@ -14,13 +14,11 @@ type Sorter interface {
 	Sort(srcFile string, dstFile string) error
 }
 
-//LessFunc represents lessser between two input vals
-type LessFunc func(a interface{}, b interface{}) (bool, error)
-
-//InputConverter is used for type conversion
-type InputConverter interface {
+//InputHandler provides methods for manipulating input
+type InputHandler interface {
 	ToStructured(a []byte) (interface{}, error)
 	ToBytes(a interface{}) ([]byte, error)
+	Less(a interface{}, b interface{}) (bool, error)
 }
 
 type extSort struct {
@@ -33,13 +31,13 @@ type extSort struct {
 }
 
 //New returns the interface for external sort
-func New(memLimit int, less LessFunc, converter InputConverter) Sorter {
+func New(memLimit int, inputHandler InputHandler) Sorter {
 	if memLimit == 0 {
 		memLimit = 1 << 16
 	}
 	return &extSort{
-		runCreator: newRunCreator(memLimit, less, converter),
-		runMerger:  newRunMerger(less, converter),
+		runCreator: newRunCreator(memLimit, inputHandler),
+		runMerger:  newRunMerger(inputHandler),
 	}
 }
 

@@ -22,14 +22,8 @@ func main() {
 		fmt.Fprintln(f, rand.Intn(inputSize))
 	}
 	f.Close()
-	less := func(a interface{}, b interface{}) (bool, error) {
-		if a.(int) < b.(int) {
-			return true, nil
-		}
-		return false, nil
-	}
 
-	err = New(0, less, &input{}).Sort(inputFile, outputFile)
+	err = New(0, &input{}).Sort(inputFile, outputFile)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -47,4 +41,11 @@ func (i *input) ToStructured(a []byte) (interface{}, error) {
 
 func (i *input) ToBytes(a interface{}) ([]byte, error) {
 	return []byte(strconv.Itoa(a.(int))), nil
+}
+
+func (i *input) Less(a, b interface{}) (bool, error) {
+	if a.(int) < b.(int) {
+		return true, nil
+	}
+	return false, nil
 }

@@ -17,14 +17,12 @@ var maxVal = &heapData{
 }
 
 type runMerger struct {
-	less      LessFunc
-	converter InputConverter
+	inputHandler InputHandler
 }
 
-func newRunMerger(less LessFunc, converter InputConverter) *runMerger {
+func newRunMerger(inputHandler InputHandler) *runMerger {
 	return &runMerger{
-		less:      less,
-		converter: converter,
+		inputHandler: inputHandler,
 	}
 }
 
@@ -68,7 +66,7 @@ func (r *runMerger) getRunIterators(runFiles []io.ReadWriter) (map[int]*bufio.Sc
 func (r *runMerger) initiateHeap(scannerMap map[int]*bufio.Scanner) (heap.Interface, error) {
 	h := &mergeHeap{
 		heapData: make([]*heapData, 0),
-		less:     r.less,
+		less:     r.inputHandler.Less,
 	}
 	heap.Init(h)
 	for i := 0; i < len(scannerMap); i++ {
@@ -80,7 +78,7 @@ func (r *runMerger) initiateHeap(scannerMap map[int]*bufio.Scanner) (heap.Interf
 			}
 			return nil, errors.New("empty file")
 		}
-		input, err := r.converter.ToStructured(scanner.Bytes())
+		input, err := r.inputHandler.ToStructured(scanner.Bytes())
 		if err != nil {
 			return nil, errors.Wrap(err, "convert string to int")
 		}
@@ -98,7 +96,7 @@ func (r *runMerger) processKWayMerge(dst io.Writer, h heap.Interface, scannerMap
 	//start iterating on runs and write to output file
 	for runsCompleted := 0; runsCompleted != numRuns; {
 		poppedEle := heap.Pop(h).(*heapData)
-		byteData, err := r.converter.ToBytes(poppedEle.data)
+		byteData, err := r.inputHandler.ToBytes(poppedEle.data)
 		if err != nil {
 			return errors.Wrap(err, "convert to bytes")
 		}
@@ -152,7 +150,7 @@ func (r *runMerger) getValueFromRun(scanner *bufio.Scanner, runID int) (*heapDat
 		//EOF reached
 		return nil, true, nil
 	}
-	runData, err := r.converter.ToStructured(scanner.Bytes())
+	runData, err := r.inputHandler.ToStructured(scanner.Bytes())
 	if err != nil {
 		return nil, false, errors.Wrap(err, "get run data")
 	}

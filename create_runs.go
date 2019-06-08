@@ -12,20 +12,18 @@ import (
 const tempFilePrefix = "exttemp-*"
 
 type runCreator struct {
-	memLimit   int
-	less       LessFunc
-	converter  InputConverter
-	readWriter interface {
+	memLimit     int
+	inputHandler InputHandler
+	readWriter   interface {
 		create() (reader io.ReadWriter, deleteFunc func() error, resetFunc func() error, err error)
 	}
 }
 
-func newRunCreator(memLimit int, less LessFunc, converter InputConverter) *runCreator {
+func newRunCreator(memLimit int, inputHandler InputHandler) *runCreator {
 	return &runCreator{
-		memLimit:   memLimit,
-		less:       less,
-		converter:  converter,
-		readWriter: newReadWriter(),
+		memLimit:     memLimit,
+		inputHandler: inputHandler,
+		readWriter:   newReadWriter(),
 	}
 }
 
@@ -36,7 +34,7 @@ func (r *runCreator) createRuns(reader io.Reader) ([]io.ReadWriter, []func() err
 	scanner.Split(bufio.ScanLines)
 	isEOF := false
 	var err error
-	sorter := &runSorter{less: r.less}
+	sorter := &runSorter{less: r.inputHandler.Less}
 	for !isEOF {
 		sorter.data, isEOF, err = r.getChunk(scanner)
 		if err != nil {
@@ -74,7 +72,7 @@ func (r *runCreator) getChunk(scanner *bufio.Scanner) ([]interface{}, bool, erro
 			return arr, true, nil
 		}
 		line := scanner.Bytes()
-		runData, err := r.converter.ToStructured(line)
+		runData, err := r.inputHandler.ToStructured(line)
 		if err != nil {
 			return nil, false, errors.Wrap(err, "convert string to int")
 		}
@@ -90,7 +88,7 @@ func (r *runCreator) flushToRun(chunk []interface{}) (reader io.ReadWriter, dele
 	//New allocation each time. Use buffer pool
 	b := new(bytes.Buffer)
 	for _, v := range chunk {
-		byteData, err := r.converter.ToBytes(v)
+		byteData, err := r.inputHandler.ToBytes(v)
 		if err != nil {
 			return nil, nil, nil, errors.Wrap(err, "convert to bytes")
 		}

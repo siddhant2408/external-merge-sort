@@ -9,6 +9,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+const minMemLimit = 1 << 16
+
 //Sorter interface provides external sorting mechanism
 type Sorter interface {
 	Sort(srcFile string, dstFile string) error
@@ -31,8 +33,8 @@ type extSort struct {
 
 //New returns the interface for external sort
 func New(memLimit int, inputHandler InputHandler) Sorter {
-	if memLimit == 0 {
-		memLimit = 1 << 16
+	if memLimit < minMemLimit {
+		memLimit = minMemLimit
 	}
 	return &extSort{
 		memLimit:     memLimit,

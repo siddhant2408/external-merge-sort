@@ -20,7 +20,7 @@ type LessFunc func(a interface{}, b interface{}) (bool, error)
 //InputConverter is used for type conversion
 type InputConverter interface {
 	ToStructured(a []byte) (interface{}, error)
-	ToBytes(a interface{}) ([]byte, bool)
+	ToBytes(a interface{}) ([]byte, error)
 }
 
 type extSort struct {

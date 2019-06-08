@@ -8,6 +8,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+var maxVal = &heapData{
+	data: nil,
+}
+
 type runMerger struct {
 	less      LessFunc
 	converter InputConverter
@@ -83,51 +87,76 @@ func (r *runMerger) initiateHeap(scannerMap map[int]*bufio.Scanner) (heap.Interf
 }
 
 func (r *runMerger) processKWayMerge(dst io.Writer, h heap.Interface, scannerMap map[int]*bufio.Scanner) error {
-	// Create a buffered writer (10 KB) for the file
 	bufferedWriter := bufio.NewWriterSize(dst, 65536)
+	numRuns := len(scannerMap)
 	//start iterating on runs and write to output file
-	for count := 0; count != len(scannerMap); {
+	for runsCompleted := 0; runsCompleted != numRuns; {
 		poppedEle := heap.Pop(h).(*heapData)
-		byteData, _ := r.converter.ToBytes(poppedEle.data)
-		if bufferedWriter.Available() < len(byteData) {
-			//push the buffered data to file
-			err := bufferedWriter.Flush()
-			if err != nil {
-				return errors.Wrap(err, "flush to output")
-			}
-		}
-		_, err := bufferedWriter.Write(byteData)
+		byteData, err := r.converter.ToBytes(poppedEle.data)
 		if err != nil {
-			return errors.Wrap(err, "add number to out file")
+			return errors.Wrap(err, "convert to bytes")
 		}
-		_, err = bufferedWriter.WriteString("\n")
+		err = r.writeToBuffer(bufferedWriter, byteData)
 		if err != nil {
-			return errors.Wrap(err, "add number to out file")
+			return errors.Wrap(err, "write to buffer")
 		}
-		//get the next element from the popped element file and add to heap
-		scanner := scannerMap[poppedEle.runID]
-		scanned := scanner.Scan()
-		if !scanned {
-			err := scanner.Err()
-			if err != nil {
-				return errors.Wrap(err, "scan file")
-			}
-			//EOF reached
-			heap.Push(h, &heapData{
-				data: nil,
-			})
-			count++
-			continue
-		}
-		runData, err := r.converter.ToStructured(scanner.Bytes())
+		heapEle, isEOFReached, err := r.getValueFromRun(scannerMap[poppedEle.runID], poppedEle.runID)
 		if err != nil {
-			return errors.Wrap(err, "get run data")
+			return errors.Wrap(err, "get next heap val")
 		}
-		heap.Push(h, &heapData{
-			data:  runData,
-			runID: poppedEle.runID,
-		})
+		if isEOFReached {
+			runsCompleted++
+			heapEle = maxVal
+		}
+		heap.Push(h, heapEle)
 	}
+	err := r.flushRemainingBuffer(bufferedWriter)
+	if err != nil {
+		return errors.Wrap(err, "flush remaining buffer")
+	}
+	return nil
+}
+
+func (r *runMerger) writeToBuffer(bufferedWriter *bufio.Writer, data []byte) error {
+	if bufferedWriter.Available() < len(data) {
+		//push the buffered data to file
+		err := bufferedWriter.Flush()
+		if err != nil {
+			return errors.Wrap(err, "flush to output")
+		}
+	}
+	_, err := bufferedWriter.Write(data)
+	if err != nil {
+		return errors.Wrap(err, "add number to out file")
+	}
+	_, err = bufferedWriter.WriteString("\n")
+	if err != nil {
+		return errors.Wrap(err, "add number to out file")
+	}
+	return nil
+}
+
+func (r *runMerger) getValueFromRun(scanner *bufio.Scanner, runID int) (*heapData, bool, error) {
+	scanned := scanner.Scan()
+	if !scanned {
+		err := scanner.Err()
+		if err != nil {
+			return nil, false, errors.Wrap(err, "scan file")
+		}
+		//EOF reached
+		return nil, true, nil
+	}
+	runData, err := r.converter.ToStructured(scanner.Bytes())
+	if err != nil {
+		return nil, false, errors.Wrap(err, "get run data")
+	}
+	return &heapData{
+		data:  runData,
+		runID: runID,
+	}, false, nil
+}
+
+func (r *runMerger) flushRemainingBuffer(bufferedWriter *bufio.Writer) error {
 	if bufferedWriter.Buffered() > 0 {
 		err := bufferedWriter.Flush()
 		if err != nil {

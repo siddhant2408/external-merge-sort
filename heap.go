@@ -13,9 +13,9 @@ type mergeHeap struct {
 func (h *mergeHeap) Len() int { return len(h.heapData) }
 
 func (h *mergeHeap) Less(i, j int) bool {
-	if h.heapData[i].data == nil {
+	if h.heapData[i] == maxVal {
 		return false
-	} else if h.heapData[j].data == nil {
+	} else if h.heapData[j] == maxVal {
 		return true
 	}
 	isLess, err := h.less(h.heapData[i].data, h.heapData[j].data)

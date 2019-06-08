@@ -36,7 +36,6 @@ func (r *runCreator) createRuns(reader io.Reader) ([]io.ReadWriter, []func() err
 	deleteRuns := make([]func() error, 0)
 	scanner := bufio.NewScanner(reader)
 	scanner.Split(bufio.ScanLines)
-	//create runs
 	isEOF := false
 	var chunk []interface{}
 	var err error
@@ -50,6 +49,7 @@ func (r *runCreator) createRuns(reader io.Reader) ([]io.ReadWriter, []func() err
 		if len(chunk) == 0 {
 			break
 		}
+		//change to sort.Sort...more efficient
 		sort.Slice(chunk, func(i, j int) bool {
 			isLess, err := r.less(chunk[i], chunk[j])
 			if err != nil {
@@ -58,12 +58,10 @@ func (r *runCreator) createRuns(reader io.Reader) ([]io.ReadWriter, []func() err
 			return isLess
 		})
 		fmt.Println("populate time: ", time.Since(populate))
-		flush := time.Now()
 		run, delete, reset, err := r.flushToRun(chunk)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "flush heap")
 		}
-		fmt.Println("flush time: ", time.Since(flush))
 		runs = append(runs, run)
 		deleteRuns = append(deleteRuns, delete)
 		err = reset()
@@ -103,11 +101,11 @@ func (r *runCreator) flushToRun(chunk []interface{}) (reader io.ReadWriter, dele
 	//New allocation each time. Use buffer pool
 	b := new(bytes.Buffer)
 	for _, v := range chunk {
-		byteData, ok := r.converter.ToBytes(v)
-		if !ok {
-			return nil, nil, nil, errors.New("convert to bytes")
+		byteData, err := r.converter.ToBytes(v)
+		if err != nil {
+			return nil, nil, nil, errors.Wrap(err, "convert to bytes")
 		}
-		_, err := b.Write(byteData)
+		_, err = b.Write(byteData)
 		if err != nil {
 			return nil, nil, nil, errors.Wrap(err, "write to buffer")
 		}

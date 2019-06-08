@@ -45,6 +45,6 @@ func (i *input) ToStructured(a []byte) (interface{}, error) {
 	return val, nil
 }
 
-func (i *input) ToBytes(a interface{}) ([]byte, bool) {
-	return []byte(strconv.Itoa(a.(int))), true
+func (i *input) ToBytes(a interface{}) ([]byte, error) {
+	return []byte(strconv.Itoa(a.(int))), nil
 }

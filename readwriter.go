@@ -15,7 +15,7 @@ func newReadWriter() *readWriter {
 }
 
 func (rw *readWriter) create() (reader io.ReadWriter, deleteFunc func() error, resetFunc func() error, err error) {
-	file, err := ioutil.TempFile("./", tempFilePrefix)
+	file, err := ioutil.TempFile(os.TempDir(), tempFilePrefix)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "create temp file")
 	}

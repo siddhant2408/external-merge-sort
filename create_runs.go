@@ -37,28 +37,21 @@ func (r *runCreator) createRuns(reader io.Reader) ([]io.ReadWriter, []func() err
 	scanner := bufio.NewScanner(reader)
 	scanner.Split(bufio.ScanLines)
 	isEOF := false
-	var chunk []interface{}
 	var err error
+	sorter := &runSorter{less: r.less}
 	for !isEOF {
 		populate := time.Now()
-		chunk, isEOF, err = r.getChunk(scanner)
+		sorter.data, isEOF, err = r.getChunk(scanner)
 		if err != nil {
 			deleteCreatedRuns(deleteRuns)
 			return nil, nil, errors.Wrap(err, "populate heap")
 		}
-		if len(chunk) == 0 {
+		if len(sorter.data) == 0 {
 			break
 		}
-		//change to sort.Sort...more efficient
-		sort.Slice(chunk, func(i, j int) bool {
-			isLess, err := r.less(chunk[i], chunk[j])
-			if err != nil {
-				panic(err)
-			}
-			return isLess
-		})
+		sort.Sort(sorter)
 		fmt.Println("populate time: ", time.Since(populate))
-		run, delete, reset, err := r.flushToRun(chunk)
+		run, delete, reset, err := r.flushToRun(sorter.data)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "flush heap")
 		}

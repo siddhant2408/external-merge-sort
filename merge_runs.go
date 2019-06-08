@@ -3,10 +3,14 @@ package main
 import (
 	"bufio"
 	"container/heap"
+	"fmt"
 	"io"
+	"time"
 
 	"github.com/pkg/errors"
 )
+
+const bufferSize = 1 << 16
 
 var maxVal = &heapData{
 	data: nil,
@@ -41,10 +45,12 @@ func (r *runMerger) mergeRuns(runs []io.ReadWriter, dst io.Writer) error {
 	if err != nil {
 		return errors.Wrap(err, "initiate merge heap")
 	}
+	merge := time.Now()
 	err = r.processKWayMerge(dst, h, scannerMap)
 	if err != nil {
 		return errors.Wrap(err, "k-way merge")
 	}
+	fmt.Println("kway merge time:", time.Since(merge))
 	return nil
 }
 
@@ -87,7 +93,7 @@ func (r *runMerger) initiateHeap(scannerMap map[int]*bufio.Scanner) (heap.Interf
 }
 
 func (r *runMerger) processKWayMerge(dst io.Writer, h heap.Interface, scannerMap map[int]*bufio.Scanner) error {
-	bufferedWriter := bufio.NewWriterSize(dst, 65536)
+	bufferedWriter := bufio.NewWriterSize(dst, bufferSize)
 	numRuns := len(scannerMap)
 	//start iterating on runs and write to output file
 	for runsCompleted := 0; runsCompleted != numRuns; {

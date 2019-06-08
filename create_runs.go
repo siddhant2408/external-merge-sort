@@ -3,10 +3,8 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"io"
 	"sort"
-	"time"
 
 	"github.com/pkg/errors"
 )
@@ -40,7 +38,6 @@ func (r *runCreator) createRuns(reader io.Reader) ([]io.ReadWriter, []func() err
 	var err error
 	sorter := &runSorter{less: r.less}
 	for !isEOF {
-		populate := time.Now()
 		sorter.data, isEOF, err = r.getChunk(scanner)
 		if err != nil {
 			deleteCreatedRuns(deleteRuns)
@@ -50,7 +47,6 @@ func (r *runCreator) createRuns(reader io.Reader) ([]io.ReadWriter, []func() err
 			break
 		}
 		sort.Sort(sorter)
-		fmt.Println("populate time: ", time.Since(populate))
 		run, delete, reset, err := r.flushToRun(sorter.data)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "flush heap")

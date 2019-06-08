@@ -64,13 +64,11 @@ func (e *extSort) Sort(srcFile string, dstFile string) error {
 }
 
 func (e *extSort) sort(src io.Reader, dst io.Writer) error {
-	create := time.Now()
 	runs, deleteRuns, err := e.runCreator.createRuns(src)
 	if err != nil {
 		return errors.Wrap(err, "create runs")
 	}
 	defer deleteCreatedRuns(deleteRuns)
-	fmt.Println("creation time:", time.Since(create))
 
 	merge := time.Now()
 	err = e.runMerger.mergeRuns(runs, dst)

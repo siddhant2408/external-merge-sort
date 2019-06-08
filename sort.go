@@ -22,11 +22,10 @@ type InputHandler interface {
 }
 
 type extSort struct {
-	runCreator interface {
-		createRuns(reader io.Reader) ([]io.ReadWriter, []func() error, error)
-	}
-	runMerger interface {
-		mergeRuns(runs []io.ReadWriter, dst io.Writer) error
+	memLimit     int
+	inputHandler InputHandler
+	readWriter   interface {
+		create() (reader io.ReadWriter, deleteFunc func() error, resetFunc func() error, err error)
 	}
 }
 
@@ -36,8 +35,9 @@ func New(memLimit int, inputHandler InputHandler) Sorter {
 		memLimit = 1 << 16
 	}
 	return &extSort{
-		runCreator: newRunCreator(memLimit, inputHandler),
-		runMerger:  newRunMerger(inputHandler),
+		memLimit:     memLimit,
+		inputHandler: inputHandler,
+		readWriter:   newReadWriter(),
 	}
 }
 
@@ -62,14 +62,14 @@ func (e *extSort) Sort(srcFile string, dstFile string) error {
 }
 
 func (e *extSort) sort(src io.Reader, dst io.Writer) error {
-	runs, deleteRuns, err := e.runCreator.createRuns(src)
+	runs, deleteRuns, err := e.createRuns(src)
 	if err != nil {
 		return errors.Wrap(err, "create runs")
 	}
-	defer deleteCreatedRuns(deleteRuns)
+	defer e.deleteCreatedRuns(deleteRuns)
 
 	merge := time.Now()
-	err = e.runMerger.mergeRuns(runs, dst)
+	err = e.mergeRuns(runs, dst)
 	if err != nil {
 		return errors.Wrap(err, "merge runs")
 	}

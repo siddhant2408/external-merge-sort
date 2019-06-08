@@ -11,41 +11,25 @@ import (
 
 const tempFilePrefix = "exttemp-*"
 
-type runCreator struct {
-	memLimit     int
-	inputHandler InputHandler
-	readWriter   interface {
-		create() (reader io.ReadWriter, deleteFunc func() error, resetFunc func() error, err error)
-	}
-}
-
-func newRunCreator(memLimit int, inputHandler InputHandler) *runCreator {
-	return &runCreator{
-		memLimit:     memLimit,
-		inputHandler: inputHandler,
-		readWriter:   newReadWriter(),
-	}
-}
-
-func (r *runCreator) createRuns(reader io.Reader) ([]io.ReadWriter, []func() error, error) {
+func (e *extSort) createRuns(reader io.Reader) ([]io.ReadWriter, []func() error, error) {
 	runs := make([]io.ReadWriter, 0)
 	deleteRuns := make([]func() error, 0)
 	scanner := bufio.NewScanner(reader)
 	scanner.Split(bufio.ScanLines)
 	isEOF := false
 	var err error
-	sorter := &runSorter{less: r.inputHandler.Less}
+	sorter := &runSorter{less: e.inputHandler.Less}
 	for !isEOF {
-		sorter.data, isEOF, err = r.getChunk(scanner)
+		sorter.data, isEOF, err = e.getChunk(scanner)
 		if err != nil {
-			deleteCreatedRuns(deleteRuns)
+			e.deleteCreatedRuns(deleteRuns)
 			return nil, nil, errors.Wrap(err, "populate heap")
 		}
 		if len(sorter.data) == 0 {
 			break
 		}
 		sort.Sort(sorter)
-		run, delete, reset, err := r.flushToRun(sorter.data)
+		run, delete, reset, err := e.flushToRun(sorter.data)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "flush heap")
 		}
@@ -53,14 +37,14 @@ func (r *runCreator) createRuns(reader io.Reader) ([]io.ReadWriter, []func() err
 		deleteRuns = append(deleteRuns, delete)
 		err = reset()
 		if err != nil {
-			deleteCreatedRuns(deleteRuns)
+			e.deleteCreatedRuns(deleteRuns)
 			return nil, nil, errors.Wrap(err, "reset run")
 		}
 	}
 	return runs, deleteRuns, nil
 }
 
-func (r *runCreator) getChunk(scanner *bufio.Scanner) ([]interface{}, bool, error) {
+func (e *extSort) getChunk(scanner *bufio.Scanner) ([]interface{}, bool, error) {
 	heapMemSize := 0
 	arr := make([]interface{}, 0)
 	for {
@@ -72,23 +56,23 @@ func (r *runCreator) getChunk(scanner *bufio.Scanner) ([]interface{}, bool, erro
 			return arr, true, nil
 		}
 		line := scanner.Bytes()
-		runData, err := r.inputHandler.ToStructured(line)
+		runData, err := e.inputHandler.ToStructured(line)
 		if err != nil {
 			return nil, false, errors.Wrap(err, "convert string to int")
 		}
 		arr = append(arr, runData)
 		heapMemSize += len(line)
-		if heapMemSize > r.memLimit {
+		if heapMemSize > e.memLimit {
 			return arr, false, nil
 		}
 	}
 }
 
-func (r *runCreator) flushToRun(chunk []interface{}) (reader io.ReadWriter, deleteFunc func() error, resetFunc func() error, err error) {
+func (e *extSort) flushToRun(chunk []interface{}) (reader io.ReadWriter, deleteFunc func() error, resetFunc func() error, err error) {
 	//New allocation each time. Use buffer pool
 	b := new(bytes.Buffer)
 	for _, v := range chunk {
-		byteData, err := r.inputHandler.ToBytes(v)
+		byteData, err := e.inputHandler.ToBytes(v)
 		if err != nil {
 			return nil, nil, nil, errors.Wrap(err, "convert to bytes")
 		}
@@ -101,7 +85,7 @@ func (r *runCreator) flushToRun(chunk []interface{}) (reader io.ReadWriter, dele
 			return nil, nil, nil, errors.Wrap(err, "write new line")
 		}
 	}
-	run, delete, reset, err := r.readWriter.create()
+	run, delete, reset, err := e.readWriter.create()
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "create read writer")
 	}
@@ -112,7 +96,7 @@ func (r *runCreator) flushToRun(chunk []interface{}) (reader io.ReadWriter, dele
 	return run, delete, reset, nil
 }
 
-func deleteCreatedRuns(deleteFuncs []func() error) {
+func (e *extSort) deleteCreatedRuns(deleteFuncs []func() error) {
 	for _, deleteRun := range deleteFuncs {
 		//even if error occurs, no problem as it will be in temp directory
 		_ = deleteRun()

@@ -11,7 +11,7 @@ import (
 
 const tempFilePrefix = "exttemp-*"
 
-func (e *extSort) createRuns(reader io.Reader) ([]io.ReadWriter, []func() error, error) {
+func (e *ExtSort) createRuns(reader io.Reader) ([]io.ReadWriter, []func() error, error) {
 	runs := make([]io.ReadWriter, 0)
 	deleteRuns := make([]func() error, 0)
 	scanner := bufio.NewScanner(reader)
@@ -44,7 +44,7 @@ func (e *extSort) createRuns(reader io.Reader) ([]io.ReadWriter, []func() error,
 	return runs, deleteRuns, nil
 }
 
-func (e *extSort) getChunk(scanner *bufio.Scanner) ([]interface{}, bool, error) {
+func (e *ExtSort) getChunk(scanner *bufio.Scanner) ([]interface{}, bool, error) {
 	heapMemSize := 0
 	arr := make([]interface{}, 0)
 	for {
@@ -68,7 +68,7 @@ func (e *extSort) getChunk(scanner *bufio.Scanner) ([]interface{}, bool, error) 
 	}
 }
 
-func (e *extSort) flushToRun(chunk []interface{}) (reader io.ReadWriter, deleteFunc func() error, resetFunc func() error, err error) {
+func (e *ExtSort) flushToRun(chunk []interface{}) (reader io.ReadWriter, deleteFunc func() error, resetFunc func() error, err error) {
 	//New allocation each time. Use buffer pool
 	b := new(bytes.Buffer)
 	for _, v := range chunk {
@@ -96,7 +96,7 @@ func (e *extSort) flushToRun(chunk []interface{}) (reader io.ReadWriter, deleteF
 	return run, delete, reset, nil
 }
 
-func (e *extSort) deleteCreatedRuns(deleteFuncs []func() error) {
+func (e *ExtSort) deleteCreatedRuns(deleteFuncs []func() error) {
 	for _, deleteRun := range deleteFuncs {
 		//even if error occurs, no problem as it will be in temp directory
 		_ = deleteRun()

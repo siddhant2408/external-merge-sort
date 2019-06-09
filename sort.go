@@ -11,11 +11,6 @@ import (
 
 const minMemLimit = 1 << 16
 
-//Sorter interface provides external sorting mechanism
-type Sorter interface {
-	Sort(srcFile string, dstFile string) error
-}
-
 //InputHandler provides methods for manipulating input
 type InputHandler interface {
 	ToStructured(a []byte) (interface{}, error)
@@ -23,7 +18,8 @@ type InputHandler interface {
 	Less(a interface{}, b interface{}) (bool, error)
 }
 
-type extSort struct {
+//ExtSort is the sorting service
+type ExtSort struct {
 	memLimit     int
 	inputHandler InputHandler
 	readWriter   interface {
@@ -32,18 +28,19 @@ type extSort struct {
 }
 
 //New returns the interface for external sort
-func New(memLimit int, inputHandler InputHandler) Sorter {
+func New(memLimit int, inputHandler InputHandler) *ExtSort {
 	if memLimit < minMemLimit {
 		memLimit = minMemLimit
 	}
-	return &extSort{
+	return &ExtSort{
 		memLimit:     memLimit,
 		inputHandler: inputHandler,
 		readWriter:   newReadWriter(),
 	}
 }
 
-func (e *extSort) Sort(srcFile string, dstFile string) error {
+//Sort sorts the srcFile and writes the result in the dstFile
+func (e *ExtSort) Sort(srcFile string, dstFile string) error {
 	src, err := os.Open(srcFile)
 	if err != nil {
 		return errors.Wrap(err, "open source file")
@@ -63,7 +60,7 @@ func (e *extSort) Sort(srcFile string, dstFile string) error {
 	return nil
 }
 
-func (e *extSort) sort(src io.Reader, dst io.Writer) error {
+func (e *ExtSort) sort(src io.Reader, dst io.Writer) error {
 	runs, deleteRuns, err := e.createRuns(src)
 	if err != nil {
 		return errors.Wrap(err, "create runs")

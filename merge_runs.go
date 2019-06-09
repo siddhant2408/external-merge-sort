@@ -16,7 +16,7 @@ var maxVal = &heapData{
 	data: nil,
 }
 
-func (e *extSort) mergeRuns(runs []io.ReadWriter, dst io.Writer) error {
+func (e *ExtSort) mergeRuns(runs []io.ReadWriter, dst io.Writer) error {
 	//ignore merge phase for only one run
 	if len(runs) == 1 {
 		_, err := io.Copy(dst, runs[0])
@@ -42,7 +42,7 @@ func (e *extSort) mergeRuns(runs []io.ReadWriter, dst io.Writer) error {
 	return nil
 }
 
-func (e *extSort) getRunIterators(runFiles []io.ReadWriter) (map[int]*bufio.Scanner, error) {
+func (e *ExtSort) getRunIterators(runFiles []io.ReadWriter) (map[int]*bufio.Scanner, error) {
 	scannerMap := make(map[int]*bufio.Scanner, len(runFiles))
 	for i, file := range runFiles {
 		scanner := bufio.NewScanner(file)
@@ -53,7 +53,7 @@ func (e *extSort) getRunIterators(runFiles []io.ReadWriter) (map[int]*bufio.Scan
 }
 
 //create a heap with top(min) values from each run
-func (e *extSort) initiateHeap(scannerMap map[int]*bufio.Scanner) (heap.Interface, error) {
+func (e *ExtSort) initiateHeap(scannerMap map[int]*bufio.Scanner) (heap.Interface, error) {
 	h := &mergeHeap{
 		heapData: make([]*heapData, 0),
 		less:     e.inputHandler.Less,
@@ -80,7 +80,7 @@ func (e *extSort) initiateHeap(scannerMap map[int]*bufio.Scanner) (heap.Interfac
 	return h, nil
 }
 
-func (e *extSort) processKWayMerge(dst io.Writer, h heap.Interface, scannerMap map[int]*bufio.Scanner) error {
+func (e *ExtSort) processKWayMerge(dst io.Writer, h heap.Interface, scannerMap map[int]*bufio.Scanner) error {
 	bufferedWriter := bufio.NewWriterSize(dst, bufferSize)
 	numRuns := len(scannerMap)
 	//start iterating on runs and write to output file
@@ -111,7 +111,7 @@ func (e *extSort) processKWayMerge(dst io.Writer, h heap.Interface, scannerMap m
 	return nil
 }
 
-func (e *extSort) writeToBuffer(bufferedWriter *bufio.Writer, data []byte) error {
+func (e *ExtSort) writeToBuffer(bufferedWriter *bufio.Writer, data []byte) error {
 	if bufferedWriter.Available() < len(data) {
 		//push the buffered data to file
 		err := bufferedWriter.Flush()
@@ -130,7 +130,7 @@ func (e *extSort) writeToBuffer(bufferedWriter *bufio.Writer, data []byte) error
 	return nil
 }
 
-func (e *extSort) getValueFromRun(scanner *bufio.Scanner, runID int) (*heapData, bool, error) {
+func (e *ExtSort) getValueFromRun(scanner *bufio.Scanner, runID int) (*heapData, bool, error) {
 	scanned := scanner.Scan()
 	if !scanned {
 		err := scanner.Err()
@@ -150,7 +150,7 @@ func (e *extSort) getValueFromRun(scanner *bufio.Scanner, runID int) (*heapData,
 	}, false, nil
 }
 
-func (e *extSort) flushRemainingBuffer(bufferedWriter *bufio.Writer) error {
+func (e *ExtSort) flushRemainingBuffer(bufferedWriter *bufio.Writer) error {
 	if bufferedWriter.Buffered() > 0 {
 		err := bufferedWriter.Flush()
 		if err != nil {

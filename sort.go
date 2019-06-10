@@ -1,10 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"os"
-	"time"
 
 	"github.com/pkg/errors"
 )
@@ -13,8 +11,11 @@ const minMemLimit = 1 << 16
 
 //InputHandler provides methods for manipulating input
 type InputHandler interface {
+	//Convert run input to structured data
 	ToStructured(a []byte) (interface{}, error)
+	//Convert structured data to bytes
 	ToBytes(a interface{}) ([]byte, error)
+	//Compare two run inputs
 	Less(a interface{}, b interface{}) (bool, error)
 }
 
@@ -22,7 +23,7 @@ type InputHandler interface {
 type ExtSort struct {
 	memLimit     int
 	inputHandler InputHandler
-	readWriter   interface {
+	runCreator   interface {
 		create() (reader io.ReadWriter, deleteFunc func() error, resetFunc func() error, err error)
 	}
 }
@@ -35,7 +36,7 @@ func New(memLimit int, inputHandler InputHandler) *ExtSort {
 	return &ExtSort{
 		memLimit:     memLimit,
 		inputHandler: inputHandler,
-		readWriter:   newReadWriter(),
+		runCreator:   newRunCreator(),
 	}
 }
 
@@ -67,11 +68,9 @@ func (e *ExtSort) sort(src io.Reader, dst io.Writer) error {
 	}
 	defer e.deleteCreatedRuns(deleteRuns)
 
-	merge := time.Now()
 	err = e.mergeRuns(runs, dst)
 	if err != nil {
 		return errors.Wrap(err, "merge runs")
 	}
-	fmt.Println("merge time: ", time.Since(merge))
 	return nil
 }

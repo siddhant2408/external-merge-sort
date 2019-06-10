@@ -9,8 +9,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-const tempFilePrefix = "exttemp-*"
-
 func (e *ExtSort) createRuns(reader io.Reader) ([]io.ReadWriter, []func() error, error) {
 	runs := make([]io.ReadWriter, 0)
 	deleteRuns := make([]func() error, 0)
@@ -53,9 +51,14 @@ func (e *ExtSort) getChunk(scanner *bufio.Scanner) ([]interface{}, bool, error) 
 			if scanner.Err() != nil {
 				return nil, false, errors.Wrap(scanner.Err(), "read from input")
 			}
+			//EOF reached
 			return arr, true, nil
 		}
 		line := scanner.Bytes()
+		//skip empty lines
+		if len(line) == 0 {
+			continue
+		}
 		runData, err := e.inputHandler.ToStructured(line)
 		if err != nil {
 			return nil, false, errors.Wrap(err, "convert string to int")
@@ -85,7 +88,7 @@ func (e *ExtSort) flushToRun(chunk []interface{}) (reader io.ReadWriter, deleteF
 			return nil, nil, nil, errors.Wrap(err, "write new line")
 		}
 	}
-	run, delete, reset, err := e.readWriter.create()
+	run, delete, reset, err := e.runCreator.create()
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "create read writer")
 	}

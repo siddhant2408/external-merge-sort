@@ -1,5 +1,9 @@
 package main
 
+var maxVal = &heapData{
+	data: nil,
+}
+
 type heapData struct {
 	runID int
 	data  interface{}

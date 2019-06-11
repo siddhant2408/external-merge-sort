@@ -1,14 +1,16 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 )
 
-const minMemLimit = 1 << 16
+const minMemLimit = 1 << 20
 
 //ExtSort is the sorting service
 type ExtSort struct {
@@ -51,16 +53,19 @@ func (e *ExtSort) Sort(srcFile string, dstFile string) error {
 }
 
 func (e *ExtSort) sort(src io.Reader, dst io.Writer) error {
+	now := time.Now()
 	runs, deleteRuns, err := e.createRuns(src)
 	if err != nil {
 		return errors.Wrap(err, "create runs")
 	}
 	defer e.deleteCreatedRuns(deleteRuns)
-
+	fmt.Println("create runs in:", time.Since(now))
+	merge := time.Now()
 	err = e.mergeRuns(runs, dst)
 	if err != nil {
 		return errors.Wrap(err, "merge runs")
 	}
+	fmt.Println("merge runs in:", time.Since(merge))
 	return nil
 }
 

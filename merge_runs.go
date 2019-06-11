@@ -1,15 +1,12 @@
 package main
 
 import (
-	"bufio"
 	"container/heap"
 	"encoding/csv"
 	"io"
 
 	"github.com/pkg/errors"
 )
-
-const bufferSize = 1 << 16
 
 func (e *ExtSort) mergeRuns(runs []io.ReadWriter, dst io.Writer) error {
 	//ignore merge phase for only one run
@@ -65,14 +62,24 @@ func (e *ExtSort) initiateHeap(iteratorMap map[int]*csv.Reader) (heap.Interface,
 }
 
 func (e *ExtSort) processKWayMerge(dst io.Writer, h heap.Interface, iteratorMap map[int]*csv.Reader) error {
-	bufferedWriter := bufio.NewWriterSize(dst, bufferSize)
+	bytesRead := 0
+	csvWriter := csv.NewWriter(dst)
 	numRuns := len(iteratorMap)
 	//start iterating on runs and write to output file
 	for runsCompleted := 0; runsCompleted != numRuns; {
 		poppedEle := heap.Pop(h).(*heapData)
-		err := e.writeToBuffer(bufferedWriter, poppedEle)
+		bytesRead += e.getLineMemSize(poppedEle.data)
+		err := csvWriter.Write(poppedEle.data)
 		if err != nil {
-			return errors.Wrap(err, "write to buffer")
+			return errors.Wrap(err, "write to csv buffer")
+		}
+		if bytesRead > e.memLimit {
+			bytesRead = 0
+			csvWriter.Flush()
+			err := csvWriter.Error()
+			if err != nil {
+				return errors.Wrap(err, "flush csv buffer")
+			}
 		}
 		heapEle, isEOFReached, err := e.getValueFromRun(iteratorMap[poppedEle.runID], poppedEle.runID)
 		if err != nil {
@@ -84,26 +91,9 @@ func (e *ExtSort) processKWayMerge(dst io.Writer, h heap.Interface, iteratorMap 
 		}
 		heap.Push(h, heapEle)
 	}
-	err := e.flushRemainingBuffer(bufferedWriter)
+	err := e.flushRemainingBuffer(csvWriter)
 	if err != nil {
 		return errors.Wrap(err, "flush remaining buffer")
-	}
-	return nil
-}
-
-func (e *ExtSort) writeToBuffer(bufferedWriter *bufio.Writer, heapData *heapData) error {
-	if bufferedWriter.Available() < e.getLineMemSize(heapData.data) {
-		//push the buffered data to file
-		err := bufferedWriter.Flush()
-		if err != nil {
-			return errors.Wrap(err, "flush to output")
-		}
-	}
-	//fix this
-	writer := csv.NewWriter(bufferedWriter)
-	err := writer.Write(heapData.data)
-	if err != nil {
-		return errors.Wrap(err, "write to out buffer")
 	}
 	return nil
 }
@@ -123,12 +113,11 @@ func (e *ExtSort) getValueFromRun(reader *csv.Reader, runID int) (*heapData, boo
 	}, false, nil
 }
 
-func (e *ExtSort) flushRemainingBuffer(bufferedWriter *bufio.Writer) error {
-	if bufferedWriter.Buffered() > 0 {
-		err := bufferedWriter.Flush()
-		if err != nil {
-			return errors.Wrap(err, "flush remaining buffer")
-		}
+func (e *ExtSort) flushRemainingBuffer(writer *csv.Writer) error {
+	writer.Flush()
+	err := writer.Error()
+	if err != nil {
+		return errors.Wrap(err, "flush csv buffer")
 	}
 	return nil
 }

@@ -3,40 +3,29 @@ package main
 import (
 	"io"
 	"os"
+	"strings"
 
 	"github.com/pkg/errors"
 )
 
 const minMemLimit = 1 << 16
 
-//InputHandler provides methods for manipulating input
-type InputHandler interface {
-	//Convert run input to structured data
-	ToStructured(a []byte) (interface{}, error)
-	//Convert structured data to bytes
-	ToBytes(a interface{}) ([]byte, error)
-	//Compare two run inputs
-	Less(a interface{}, b interface{}) (bool, error)
-}
-
 //ExtSort is the sorting service
 type ExtSort struct {
-	memLimit     int
-	inputHandler InputHandler
-	runCreator   interface {
+	memLimit   int
+	runCreator interface {
 		create() (reader io.ReadWriter, deleteFunc func() error, resetFunc func() error, err error)
 	}
 }
 
 //New returns the interface for external sort
-func New(memLimit int, inputHandler InputHandler) *ExtSort {
+func New(memLimit int) *ExtSort {
 	if memLimit < minMemLimit {
 		memLimit = minMemLimit
 	}
 	return &ExtSort{
-		memLimit:     memLimit,
-		inputHandler: inputHandler,
-		runCreator:   newRunCreator(),
+		memLimit:   memLimit,
+		runCreator: newRunCreator(),
 	}
 }
 
@@ -73,4 +62,14 @@ func (e *ExtSort) sort(src io.Reader, dst io.Writer) error {
 		return errors.Wrap(err, "merge runs")
 	}
 	return nil
+}
+
+func compareEmail(a, b []string) (bool, error) {
+	res := strings.Compare(a[1], b[1])
+	if res == -1 {
+		return true, nil
+	} else if res == 1 {
+		return false, nil
+	}
+	return false, nil
 }

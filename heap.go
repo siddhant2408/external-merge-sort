@@ -6,12 +6,12 @@ var maxVal = &heapData{
 
 type heapData struct {
 	runID int
-	data  interface{}
+	data  []string
 }
 
 type mergeHeap struct {
 	heapData []*heapData
-	less     func(a, b interface{}) (bool, error)
+	less     func(a, b []string) (bool, error)
 }
 
 func (h *mergeHeap) Len() int { return len(h.heapData) }

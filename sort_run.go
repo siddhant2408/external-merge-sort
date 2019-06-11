@@ -1,8 +1,8 @@
 package main
 
 type runSorter struct {
-	data []interface{}
-	less func(a, b interface{}) (bool, error)
+	data [][]string
+	less func(a, b []string) (bool, error)
 }
 
 func (r *runSorter) Len() int {

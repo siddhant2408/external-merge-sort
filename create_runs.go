@@ -1,8 +1,7 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
+	"encoding/csv"
 	"io"
 	"sort"
 
@@ -12,13 +11,18 @@ import (
 func (e *ExtSort) createRuns(reader io.Reader) ([]io.ReadWriter, []func() error, error) {
 	runs := make([]io.ReadWriter, 0)
 	deleteRuns := make([]func() error, 0)
-	scanner := bufio.NewScanner(reader)
-	scanner.Split(bufio.ScanLines)
+	csvReader := csv.NewReader(reader)
+	//read headers
+	_, err := csvReader.Read()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "read csv headers")
+	}
 	isEOF := false
-	var err error
-	sorter := &runSorter{less: e.inputHandler.Less}
+	sorter := &runSorter{
+		less: compareEmail,
+	}
 	for !isEOF {
-		sorter.data, isEOF, err = e.getChunk(scanner)
+		sorter.data, isEOF, err = e.getChunk(csvReader)
 		if err != nil {
 			e.deleteCreatedRuns(deleteRuns)
 			return nil, nil, errors.Wrap(err, "populate heap")
@@ -42,57 +46,45 @@ func (e *ExtSort) createRuns(reader io.Reader) ([]io.ReadWriter, []func() error,
 	return runs, deleteRuns, nil
 }
 
-func (e *ExtSort) getChunk(scanner *bufio.Scanner) ([]interface{}, bool, error) {
+func (e *ExtSort) getChunk(csvReader *csv.Reader) ([][]string, bool, error) {
 	heapMemSize := 0
-	arr := make([]interface{}, 0)
+	arr := make([][]string, 0)
 	for {
-		scanned := scanner.Scan()
-		if !scanned {
-			if scanner.Err() != nil {
-				return nil, false, errors.Wrap(scanner.Err(), "read from input")
+		line, err := csvReader.Read()
+		if err != nil {
+			if err != io.EOF {
+				return nil, false, errors.Wrap(err, "read from input")
 			}
 			//EOF reached
 			return arr, true, nil
 		}
-		line := scanner.Bytes()
 		//skip empty lines
 		if len(line) == 0 {
 			continue
 		}
-		runData, err := e.inputHandler.ToStructured(line)
-		if err != nil {
-			return nil, false, errors.Wrap(err, "convert string to int")
-		}
-		arr = append(arr, runData)
-		heapMemSize += len(line)
+		arr = append(arr, line)
+		heapMemSize += e.getLineMemSize(line)
 		if heapMemSize > e.memLimit {
 			return arr, false, nil
 		}
 	}
 }
 
-func (e *ExtSort) flushToRun(chunk []interface{}) (reader io.ReadWriter, deleteFunc func() error, resetFunc func() error, err error) {
-	//New allocation each time. Use buffer pool
-	b := new(bytes.Buffer)
-	for _, v := range chunk {
-		byteData, err := e.inputHandler.ToBytes(v)
-		if err != nil {
-			return nil, nil, nil, errors.Wrap(err, "convert to bytes")
-		}
-		_, err = b.Write(byteData)
-		if err != nil {
-			return nil, nil, nil, errors.Wrap(err, "write to buffer")
-		}
-		_, err = b.WriteString("\n")
-		if err != nil {
-			return nil, nil, nil, errors.Wrap(err, "write new line")
-		}
+func (e *ExtSort) getLineMemSize(line []string) int {
+	size := 0
+	for _, val := range line {
+		size += len([]byte(val))
 	}
+	return size
+}
+
+func (e *ExtSort) flushToRun(chunk [][]string) (reader io.ReadWriter, deleteFunc func() error, resetFunc func() error, err error) {
 	run, delete, reset, err := e.runCreator.create()
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "create read writer")
 	}
-	_, err = b.WriteTo(run)
+	writer := csv.NewWriter(run)
+	err = writer.WriteAll(chunk)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "write to run")
 	}

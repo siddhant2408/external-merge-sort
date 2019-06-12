@@ -2,10 +2,8 @@ package main
 
 import (
 	"encoding/csv"
-	"fmt"
 	"io"
 	"sort"
-	"time"
 
 	"github.com/pkg/errors"
 )
@@ -81,7 +79,6 @@ func (e *ExtSort) getLineMemSize(line []string) int {
 }
 
 func (e *ExtSort) flushToRun(chunk [][]string) (reader io.ReadWriter, deleteFunc func() error, resetFunc func() error, err error) {
-	now := time.Now()
 	run, delete, reset, err := e.runCreator.create()
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "create read writer")
@@ -91,7 +88,6 @@ func (e *ExtSort) flushToRun(chunk [][]string) (reader io.ReadWriter, deleteFunc
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "write to run")
 	}
-	fmt.Println("run created in", time.Since(now))
 	return run, delete, reset, nil
 }
 

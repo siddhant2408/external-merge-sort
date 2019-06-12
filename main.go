@@ -14,31 +14,9 @@ import (
 func main() {
 	inputFile := "input.csv"
 	outputFile := "output.csv"
-	//populate input file
-	f, err := os.Create(inputFile)
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
 
-	writer := csv.NewWriter(f)
-	defer writer.Flush()
-
-	var data [][]string
-	inputSize := 100000
-
-	err = writer.Write([]string{"id", "email", "name", "age", "gender"})
-	if err != nil {
-		panic(err)
-	}
-	for i := 0; i < int(inputSize); i++ {
-		data = append(data, []string{strconv.Itoa(rand.Intn(inputSize)), randomdata.Email(), "sid", strconv.Itoa(rand.Intn(100)), "Male"})
-	}
-	err = writer.WriteAll(data)
-	if err != nil {
-		panic(err)
-	}
-	err = New(0, compareEmail).Sort(inputFile, outputFile)
+	createInputFile(inputFile, 100000)
+	err := New(0, compareEmail).Sort(inputFile, outputFile)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -52,4 +30,29 @@ func compareEmail(a, b []string) (bool, error) {
 		return false, nil
 	}
 	return false, nil
+}
+
+func createInputFile(name string, size int) {
+	f, err := os.Create(name)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	writer := csv.NewWriter(f)
+	defer writer.Flush()
+
+	var data [][]string
+
+	err = writer.Write([]string{"id", "email", "name", "age", "gender"})
+	if err != nil {
+		panic(err)
+	}
+	for i := 0; i < int(size); i++ {
+		data = append(data, []string{strconv.Itoa(rand.Intn(size)), randomdata.Email(), "sid", strconv.Itoa(rand.Intn(100)), "Male"})
+	}
+	err = writer.WriteAll(data)
+	if err != nil {
+		panic(err)
+	}
 }

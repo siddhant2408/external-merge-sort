@@ -41,7 +41,7 @@ func (e *ExtSort) getRunIterators(runFiles []io.ReadWriter) map[int]*csv.Reader 
 func (e *ExtSort) initiateHeap(iteratorMap map[int]*csv.Reader) (heap.Interface, error) {
 	h := &mergeHeap{
 		heapData: make([]*heapData, 0),
-		less:     compareEmail,
+		less:     e.less,
 	}
 	heap.Init(h)
 	for i := 0; i < len(iteratorMap); i++ {

@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"os"
 	"strconv"
+	"strings"
 
 	randomdata "github.com/Pallinder/go-randomdata"
 )
@@ -37,8 +38,18 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	err = New(0).Sort(inputFile, outputFile)
+	err = New(0, compareEmail).Sort(inputFile, outputFile)
 	if err != nil {
 		fmt.Println(err)
 	}
+}
+
+func compareEmail(a, b []string) (bool, error) {
+	res := strings.Compare(a[1], b[1])
+	if res == -1 {
+		return true, nil
+	} else if res == 1 {
+		return false, nil
+	}
+	return false, nil
 }

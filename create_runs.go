@@ -21,7 +21,7 @@ func (e *ExtSort) createRuns(reader io.Reader) ([]io.ReadWriter, []func() error,
 	}
 	isEOF := false
 	sorter := &runSorter{
-		less: compareEmail,
+		less: e.less,
 	}
 	for !isEOF {
 		sorter.data, isEOF, err = e.getChunk(csvReader)

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -12,21 +11,26 @@ import (
 
 const minMemLimit = 1 << 20
 
+//Less compares two csv lines
+type Less func(a, b []string) (bool, error)
+
 //ExtSort is the sorting service
 type ExtSort struct {
 	memLimit   int
+	less       Less
 	runCreator interface {
 		create() (reader io.ReadWriter, deleteFunc func() error, resetFunc func() error, err error)
 	}
 }
 
 //New returns the interface for external sort
-func New(memLimit int) *ExtSort {
+func New(memLimit int, less Less) *ExtSort {
 	if memLimit < minMemLimit {
 		memLimit = minMemLimit
 	}
 	return &ExtSort{
 		memLimit:   memLimit,
+		less:       less,
 		runCreator: newRunCreator(),
 	}
 }
@@ -67,14 +71,4 @@ func (e *ExtSort) sort(src io.Reader, dst io.Writer) error {
 	}
 	fmt.Println("merge runs in:", time.Since(merge))
 	return nil
-}
-
-func compareEmail(a, b []string) (bool, error) {
-	res := strings.Compare(a[1], b[1])
-	if res == -1 {
-		return true, nil
-	} else if res == 1 {
-		return false, nil
-	}
-	return false, nil
 }

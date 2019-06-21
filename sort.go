@@ -7,7 +7,11 @@ import (
 	"github.com/pkg/errors"
 )
 
-const minMemLimit = 1 << 20
+const (
+	minMemLimit   = 1 << 20
+	sortTypeEmail = "email"
+	sortTypeSMS   = "sms"
+)
 
 //Less compares two csv lines
 type Less func(a, b []string) (bool, error)
@@ -19,10 +23,14 @@ type ExtSort struct {
 	runCreator interface {
 		create() (reader io.ReadWriter, deleteFunc func() error, resetFunc func() error, err error)
 	}
+	//email or sms
+	sortType string
+	//map to determine the position of each header
+	headerMap map[string]int
 }
 
 //New returns the interface for external sort
-func New(memLimit int, less Less) *ExtSort {
+func New(memLimit int, less Less, sortType string) *ExtSort {
 	if memLimit < minMemLimit {
 		memLimit = minMemLimit
 	}
@@ -30,6 +38,8 @@ func New(memLimit int, less Less) *ExtSort {
 		memLimit:   memLimit,
 		less:       less,
 		runCreator: newRunCreator(),
+		sortType:   sortType,
+		headerMap:  make(map[string]int),
 	}
 }
 

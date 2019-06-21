@@ -9,20 +9,12 @@ import (
 )
 
 func (e *ExtSort) mergeRuns(runs []io.ReadWriter, dst io.Writer) error {
-	//ignore merge phase for only one run
-	if len(runs) == 1 {
-		_, err := io.Copy(dst, runs[0])
-		if err != nil {
-			return errors.Wrap(err, "write to dst")
-		}
-		return nil
-	}
 	iteratorMap := e.getRunIterators(runs)
-	h, err := e.initiateHeap(iteratorMap)
+	h, initHeapMap, err := e.initiateHeap(iteratorMap)
 	if err != nil {
 		return errors.Wrap(err, "initiate merge heap")
 	}
-	err = e.processKWayMerge(dst, h, iteratorMap)
+	err = e.processKWayMerge(dst, h, iteratorMap, initHeapMap)
 	if err != nil {
 		return errors.Wrap(err, "k-way merge")
 	}
@@ -38,40 +30,75 @@ func (e *ExtSort) getRunIterators(runFiles []io.ReadWriter) map[int]*csv.Reader 
 }
 
 //create a heap with top(min) values from each run
-func (e *ExtSort) initiateHeap(iteratorMap map[int]*csv.Reader) (heap.Interface, error) {
+func (e *ExtSort) initiateHeap(iteratorMap map[int]*csv.Reader) (heap.Interface, map[string]bool, error) {
+	//build map using merge strategy here too
+	initHeapMap := make(map[string]bool)
 	h := &mergeHeap{
 		heapData: make([]*heapData, 0),
 		less:     e.less,
 	}
 	heap.Init(h)
-	for i := 0; i < len(iteratorMap); i++ {
+	for i := 0; i < len(iteratorMap); {
 		reader := iteratorMap[i]
 		line, err := reader.Read()
 		if err != nil {
 			if err != io.EOF {
-				return nil, errors.Wrap(err, "scan file")
+				return nil, nil, errors.Wrap(err, "scan file")
 			}
-			return nil, errors.New("empty file")
+			return nil, nil, errors.New("empty file")
 		}
+		if e.eleExists(line, initHeapMap) {
+			h = e.mergeEle(h, &heapData{
+				data: line,
+			})
+			continue
+		}
+		initHeapMap[line[e.headerMap[e.sortType]]] = true
 		heap.Push(h, &heapData{
 			data:  line,
 			runID: i,
 		})
+		i++
 	}
-	return h, nil
+	return h, initHeapMap, nil
 }
 
-func (e *ExtSort) processKWayMerge(dst io.Writer, h heap.Interface, iteratorMap map[int]*csv.Reader) error {
+func (e *ExtSort) processKWayMerge(dst io.Writer, h heap.Interface, iteratorMap map[int]*csv.Reader, heapEleMap map[string]bool) error {
 	bytesRead := 0
 	csvWriter := csv.NewWriter(dst)
 	numRuns := len(iteratorMap)
 	//start iterating on runs and write to output file
 	for runsCompleted := 0; runsCompleted != numRuns; {
-		poppedEle := heap.Pop(h).(*heapData)
-		bytesRead += e.getLineMemSize(poppedEle.data)
-		err := csvWriter.Write(poppedEle.data)
+		minEleRunID := e.getMinEleRunID(h)
+		heapEle, isEOFReached, err := e.getValueFromRun(iteratorMap[minEleRunID], minEleRunID)
 		if err != nil {
-			return errors.Wrap(err, "write to csv buffer")
+			return errors.Wrap(err, "get next heap val")
+		}
+		if isEOFReached {
+			runsCompleted++
+			//pop min and push MAX_ELE to heap
+			poppedEle := heap.Pop(h).(*heapData)
+			bytesRead += e.getLineMemSize(poppedEle.data)
+			err := csvWriter.Write(poppedEle.data)
+			if err != nil {
+				return errors.Wrap(err, "write to csv buffer")
+			}
+			heap.Push(h, maxVal)
+			continue
+		}
+		//if heapEle exists in the heap, merge
+		if e.eleExists(heapEle.data, heapEleMap) {
+			h = e.mergeEle(h, heapEle)
+			continue
+		} else {
+			//pop min and print to file
+			poppedEle := heap.Pop(h).(*heapData)
+			bytesRead += e.getLineMemSize(poppedEle.data)
+			//remove min from heapEleMap
+			deleteIndex := e.headerMap[e.sortType]
+			delete(heapEleMap, heapEle.data[deleteIndex])
+			//push heapEle to heap
+			heap.Push(h, heapEle)
 		}
 		if bytesRead > e.memLimit {
 			bytesRead = 0
@@ -81,15 +108,6 @@ func (e *ExtSort) processKWayMerge(dst io.Writer, h heap.Interface, iteratorMap 
 				return errors.Wrap(err, "flush csv buffer")
 			}
 		}
-		heapEle, isEOFReached, err := e.getValueFromRun(iteratorMap[poppedEle.runID], poppedEle.runID)
-		if err != nil {
-			return errors.Wrap(err, "get next heap val")
-		}
-		if isEOFReached {
-			runsCompleted++
-			heapEle = maxVal
-		}
-		heap.Push(h, heapEle)
 	}
 	err := e.flushRemainingBuffer(csvWriter)
 	if err != nil {
@@ -120,4 +138,33 @@ func (e *ExtSort) flushRemainingBuffer(writer *csv.Writer) error {
 		return errors.Wrap(err, "flush csv buffer")
 	}
 	return nil
+}
+
+func (e *ExtSort) getMinEleRunID(h heap.Interface) int {
+	heapData := h.(*mergeHeap).heapData[0]
+	return heapData.runID
+}
+
+func (e *ExtSort) eleExists(heapEle []string, heapEleMap map[string]bool) bool {
+	csvKeyIndex := e.headerMap[e.sortType]
+	_, ok := heapEleMap[heapEle[csvKeyIndex]]
+	return ok
+}
+
+func (e *ExtSort) mergeEle(h heap.Interface, heapEle *heapData) *mergeHeap {
+	mergeHeap := h.(*mergeHeap)
+	heapData := mergeHeap.heapData
+	for i, line := range heapData {
+		comparisonValIndex := e.headerMap[e.sortType]
+		if line.data[comparisonValIndex] == heapEle.data[comparisonValIndex] {
+			mergeHeap.heapData[i].data = e.getMergedValue(line.data, heapEle.data)
+			break
+		}
+	}
+	return mergeHeap
+}
+
+func (e *ExtSort) getMergedValue(newEle []string, heapEle []string) []string {
+	//last one wins
+	return newEle
 }

@@ -12,8 +12,7 @@ func (e *ExtSort) createRuns(reader io.Reader) ([]io.ReadWriter, []func() error,
 	runs := make([]io.ReadWriter, 0)
 	deleteRuns := make([]func() error, 0)
 	csvReader := csv.NewReader(reader)
-	//read headers
-	_, err := csvReader.Read()
+	err := e.readHeaders(csvReader)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "read csv headers")
 	}
@@ -44,6 +43,17 @@ func (e *ExtSort) createRuns(reader io.Reader) ([]io.ReadWriter, []func() error,
 		}
 	}
 	return runs, deleteRuns, nil
+}
+
+func (e *ExtSort) readHeaders(csvReader *csv.Reader) error {
+	headers, err := csvReader.Read()
+	if err != nil {
+		return errors.Wrap(err, "read csv headers")
+	}
+	for i, v := range headers {
+		e.headerMap[v] = i
+	}
+	return nil
 }
 
 func (e *ExtSort) getChunk(csvReader *csv.Reader) ([][]string, bool, error) {

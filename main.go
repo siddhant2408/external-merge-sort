@@ -15,7 +15,7 @@ func main() {
 	inputFile := "input.csv"
 	outputFile := "output.csv"
 
-	createInputFile(inputFile, 100000)
+	createInputFile(inputFile, 10000)
 	err := New(0, compareEmail, sortTypeEmail).Sort(inputFile, outputFile)
 	if err != nil {
 		fmt.Println(err)

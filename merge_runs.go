@@ -30,14 +30,13 @@ func (e *ExtSort) getRunIterators(runFiles []io.ReadWriter) map[int]*csv.Reader 
 }
 
 //create a heap with top(min) values from each run
-func (e *ExtSort) initiateHeap(iteratorMap map[int]*csv.Reader) (heap.Interface, map[string]bool, error) {
+func (e *ExtSort) initiateHeap(iteratorMap map[int]*csv.Reader) (*mergeHeap, map[string]bool, error) {
 	//build map using merge strategy here too
 	initHeapMap := make(map[string]bool)
 	h := &mergeHeap{
 		heapData: make([]*heapData, 0),
 		less:     e.less,
 	}
-	heap.Init(h)
 	for i := 0; i < len(iteratorMap); {
 		reader := iteratorMap[i]
 		line, err := reader.Read()
@@ -47,8 +46,9 @@ func (e *ExtSort) initiateHeap(iteratorMap map[int]*csv.Reader) (heap.Interface,
 			}
 			return nil, nil, errors.New("empty file")
 		}
+		//no duplicate email/sms should be there in the initial heap
 		if e.eleExists(line, initHeapMap) {
-			h = e.mergeEle(h, &heapData{
+			e.mergeEle(h, &heapData{
 				data: line,
 			})
 			continue
@@ -63,7 +63,7 @@ func (e *ExtSort) initiateHeap(iteratorMap map[int]*csv.Reader) (heap.Interface,
 	return h, initHeapMap, nil
 }
 
-func (e *ExtSort) processKWayMerge(dst io.Writer, h heap.Interface, iteratorMap map[int]*csv.Reader, heapEleMap map[string]bool) error {
+func (e *ExtSort) processKWayMerge(dst io.Writer, h *mergeHeap, iteratorMap map[int]*csv.Reader, heapEleMap map[string]bool) error {
 	bytesRead := 0
 	csvWriter := csv.NewWriter(dst)
 	numRuns := len(iteratorMap)
@@ -88,7 +88,7 @@ func (e *ExtSort) processKWayMerge(dst io.Writer, h heap.Interface, iteratorMap 
 		}
 		//if heapEle exists in the heap, merge
 		if e.eleExists(heapEle.data, heapEleMap) {
-			h = e.mergeEle(h, heapEle)
+			e.mergeEle(h, heapEle)
 			continue
 		} else {
 			//pop min and print to file
@@ -145,8 +145,8 @@ func (e *ExtSort) flushRemainingBuffer(writer *csv.Writer) error {
 	return nil
 }
 
-func (e *ExtSort) getMinEleRunID(h heap.Interface) int {
-	heapData := h.(*mergeHeap).heapData[0]
+func (e *ExtSort) getMinEleRunID(h *mergeHeap) int {
+	heapData := h.heapData[0]
 	return heapData.runID
 }
 
@@ -156,17 +156,14 @@ func (e *ExtSort) eleExists(heapEle []string, heapEleMap map[string]bool) bool {
 	return ok
 }
 
-func (e *ExtSort) mergeEle(h heap.Interface, heapEle *heapData) *mergeHeap {
-	mergeHeap := h.(*mergeHeap)
-	heapData := mergeHeap.heapData
-	for i, line := range heapData {
+func (e *ExtSort) mergeEle(h *mergeHeap, heapEle *heapData) {
+	for i, line := range h.heapData {
 		comparisonValIndex := e.headerMap[e.sortType]
 		if line.data[comparisonValIndex] == heapEle.data[comparisonValIndex] {
-			mergeHeap.heapData[i].data = e.getMergedValue(line.data, heapEle.data)
+			h.heapData[i].data = e.getMergedValue(line.data, heapEle.data)
 			break
 		}
 	}
-	return mergeHeap
 }
 
 func (e *ExtSort) getMergedValue(newEle []string, heapEle []string) []string {

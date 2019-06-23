@@ -94,11 +94,16 @@ func (e *ExtSort) processKWayMerge(dst io.Writer, h heap.Interface, iteratorMap 
 			//pop min and print to file
 			poppedEle := heap.Pop(h).(*heapData)
 			bytesRead += e.getLineMemSize(poppedEle.data)
+			err := csvWriter.Write(poppedEle.data)
+			if err != nil {
+				return errors.Wrap(err, "write to csv buffer")
+			}
 			//remove min from heapEleMap
-			deleteIndex := e.headerMap[e.sortType]
-			delete(heapEleMap, heapEle.data[deleteIndex])
+			index := e.headerMap[e.sortType]
+			delete(heapEleMap, poppedEle.data[index])
 			//push heapEle to heap
 			heap.Push(h, heapEle)
+			heapEleMap[heapEle.data[index]] = true
 		}
 		if bytesRead > e.memLimit {
 			bytesRead = 0

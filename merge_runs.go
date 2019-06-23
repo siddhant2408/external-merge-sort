@@ -70,7 +70,7 @@ func (e *ExtSort) processKWayMerge(dst io.Writer, h *mergeHeap, iteratorMap map[
 	//start iterating on runs and write to output file
 	for runsCompleted := 0; runsCompleted != numRuns; {
 		minEleRunID := e.getMinEleRunID(h)
-		heapEle, isEOFReached, err := e.getValueFromRun(iteratorMap[minEleRunID], minEleRunID)
+		runEle, isEOFReached, err := e.getValueFromRun(iteratorMap[minEleRunID], minEleRunID)
 		if err != nil {
 			return errors.Wrap(err, "get next heap val")
 		}
@@ -87,8 +87,8 @@ func (e *ExtSort) processKWayMerge(dst io.Writer, h *mergeHeap, iteratorMap map[
 			continue
 		}
 		//if heapEle exists in the heap, merge
-		if e.eleExists(heapEle.data, heapEleMap) {
-			e.mergeEle(h, heapEle)
+		if e.eleExists(runEle.data, heapEleMap) {
+			e.mergeEle(h, runEle)
 			continue
 		} else {
 			//pop min and print to file
@@ -102,8 +102,8 @@ func (e *ExtSort) processKWayMerge(dst io.Writer, h *mergeHeap, iteratorMap map[
 			index := e.headerMap[e.sortType]
 			delete(heapEleMap, poppedEle.data[index])
 			//push heapEle to heap
-			heap.Push(h, heapEle)
-			heapEleMap[heapEle.data[index]] = true
+			heap.Push(h, runEle)
+			heapEleMap[runEle.data[index]] = true
 		}
 		if bytesRead > e.memLimit {
 			bytesRead = 0

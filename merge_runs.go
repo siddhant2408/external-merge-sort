@@ -158,6 +158,9 @@ func (e *ExtSort) eleExists(heapEle []string, heapEleMap map[string]bool) bool {
 
 func (e *ExtSort) mergeEle(h *mergeHeap, heapEle *heapData) {
 	for i, line := range h.heapData {
+		if h.heapData[i] == maxVal {
+			continue
+		}
 		comparisonValIndex := e.headerMap[e.sortType]
 		if line.data[comparisonValIndex] == heapEle.data[comparisonValIndex] {
 			h.heapData[i].data = e.getMergedValue(line.data, heapEle.data)

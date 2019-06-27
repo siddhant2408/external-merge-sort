@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (e *ExtSort) mergeRuns(runs []io.ReadWriter, dst io.Writer) error {
+func (e *ExtSort) mergeRuns(runs []io.ReadSeeker, dst io.Writer) error {
 	iteratorMap := e.getRunIterators(runs)
 	h, initHeapMap, err := e.initiateHeap(iteratorMap)
 	if err != nil {
@@ -21,7 +21,7 @@ func (e *ExtSort) mergeRuns(runs []io.ReadWriter, dst io.Writer) error {
 	return nil
 }
 
-func (e *ExtSort) getRunIterators(runFiles []io.ReadWriter) map[int]*csv.Reader {
+func (e *ExtSort) getRunIterators(runFiles []io.ReadSeeker) map[int]*csv.Reader {
 	iteratorMap := make(map[int]*csv.Reader, len(runFiles))
 	for i, file := range runFiles {
 		iteratorMap[i] = csv.NewReader(file)
@@ -44,7 +44,7 @@ func (e *ExtSort) initiateHeap(iteratorMap map[int]*csv.Reader) (*mergeHeap, map
 			if err != io.EOF {
 				return nil, nil, errors.Wrap(err, "scan file")
 			}
-			return nil, nil, errors.New("empty file")
+			return nil, nil, errors.Wrap(err, "read file")
 		}
 		//no duplicate email/sms should be there in the initial heap
 		if e.eleExists(line, initHeapMap) {

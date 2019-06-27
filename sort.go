@@ -21,7 +21,7 @@ type ExtSort struct {
 	memLimit   int
 	less       Less
 	runCreator interface {
-		create() (reader io.ReadWriter, deleteFunc func() error, resetFunc func() error, err error)
+		create(chunk [][]string) (reader io.ReadSeeker, deleteFunc func() error, err error)
 	}
 	//email or sms
 	sortType string

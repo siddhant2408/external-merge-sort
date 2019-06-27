@@ -3,12 +3,14 @@ package main
 import (
 	"encoding/csv"
 	"fmt"
+	"io"
 	"math/rand"
 	"os"
 	"strconv"
 	"strings"
 
 	randomdata "github.com/Pallinder/go-randomdata"
+	"github.com/pkg/errors"
 )
 
 func main() {
@@ -38,21 +40,28 @@ func createInputFile(name string, size int) {
 		panic(err)
 	}
 	defer f.Close()
+	err = populateInput(f, size)
+	if err != nil {
+		panic(err)
+	}
+}
 
-	writer := csv.NewWriter(f)
+func populateInput(w io.Writer, size int) error {
+	writer := csv.NewWriter(w)
 	defer writer.Flush()
 
 	var data [][]string
 
-	err = writer.Write([]string{"id", "email", "name", "age", "gender"})
+	err := writer.Write([]string{"id", "email", "name", "age", "gender"})
 	if err != nil {
-		panic(err)
+		return errors.Wrap(err, "write to buffer")
 	}
 	for i := 0; i < int(size); i++ {
 		data = append(data, []string{strconv.Itoa(rand.Intn(size)), randomdata.Email(), "sid", strconv.Itoa(rand.Intn(100)), "Male"})
 	}
 	err = writer.WriteAll(data)
 	if err != nil {
-		panic(err)
+		return errors.Wrap(err, "write to csv")
 	}
+	return nil
 }

@@ -170,6 +170,15 @@ func (e *ExtSort) mergeEle(h *mergeHeap, heapEle *heapData) {
 }
 
 func (e *ExtSort) getMergedValue(newEle []string, heapEle []string) []string {
-	//last one wins
-	return newEle
+	var mergedEle []string
+	for i, _ := range newEle {
+		if newEle[i] == "" {
+			if !e.importEmpty {
+				mergedEle = append(mergedEle, heapEle[i])
+				continue
+			}
+		}
+		mergedEle = append(mergedEle, newEle[i])
+	}
+	return mergedEle
 }

@@ -27,19 +27,22 @@ type ExtSort struct {
 	sortType string
 	//map to determine the position of each header
 	headerMap map[string]int
+	//import empty fields
+	importEmpty bool
 }
 
 //New returns the interface for external sort
-func New(memLimit int, less Less, sortType string) *ExtSort {
+func New(memLimit int, less Less, sortType string, importEmpty bool) *ExtSort {
 	if memLimit < minMemLimit {
 		memLimit = minMemLimit
 	}
 	return &ExtSort{
-		memLimit:   memLimit,
-		less:       less,
-		runCreator: newRunCreator(),
-		sortType:   sortType,
-		headerMap:  make(map[string]int),
+		memLimit:    memLimit,
+		less:        less,
+		runCreator:  newRunCreator(),
+		sortType:    sortType,
+		headerMap:   make(map[string]int),
+		importEmpty: importEmpty,
 	}
 }
 

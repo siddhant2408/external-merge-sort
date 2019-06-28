@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	randomdata "github.com/Pallinder/go-randomdata"
+	"github.com/Pallinder/go-randomdata"
 	"github.com/pkg/errors"
 )
 
@@ -18,7 +18,7 @@ func main() {
 	outputFile := "output.csv"
 
 	createInputFile(inputFile, 100000)
-	err := New(0, compareEmail, sortTypeEmail).Sort(inputFile, outputFile)
+	err := New(0, compareEmail, sortTypeEmail, false).Sort(inputFile, outputFile)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -49,19 +49,18 @@ func createInputFile(name string, size int) {
 func populateInput(w io.Writer, size int) error {
 	writer := csv.NewWriter(w)
 	defer writer.Flush()
-
-	var data [][]string
-
-	err := writer.Write([]string{"id", "email", "name", "age", "gender"})
-	if err != nil {
-		return errors.Wrap(err, "write to buffer")
-	}
-	for i := 0; i < int(size); i++ {
-		data = append(data, []string{strconv.Itoa(rand.Intn(size)), randomdata.Email(), "sid", strconv.Itoa(rand.Intn(100)), "Male"})
-	}
-	err = writer.WriteAll(data)
+	err := writer.WriteAll(getTestData(size))
 	if err != nil {
 		return errors.Wrap(err, "write to csv")
 	}
 	return nil
+}
+
+func getTestData(size int) [][]string {
+	var data [][]string
+	data = append(data, []string{"id", "email", "name", "age", "gender"})
+	for i := 0; i < int(size); i++ {
+		data = append(data, []string{strconv.Itoa(rand.Intn(size)), randomdata.Email(), "sid", strconv.Itoa(rand.Intn(100)), "Male"})
+	}
+	return data
 }

@@ -1,60 +1,71 @@
 package main
 
 import (
-	"os"
+	"bytes"
+	"io"
+	"sort"
+	"strings"
 	"testing"
+
+	"github.com/pkg/errors"
 )
 
-var (
-	sorter    *ExtSort
-	inputFile = "input.csv"
-)
-
-func init() {
-	sorter = New(0, compareEmail, "email")
-}
-
-func BenchmarkSort_10K(b *testing.B) {
-	b.StopTimer()
-	createInputFile(inputFile, 10000)
-	b.StartTimer()
-	defer os.Remove(inputFile)
-	var err error
-	for i := 0; i < b.N; i++ {
-		err = sorter.Sort(inputFile, "output.csv")
+func TestExtSort(t *testing.T) {
+	e := &ExtSort{
+		memLimit:   minMemLimit,
+		less:       compareEmail,
+		runCreator: &testRunCreator{},
+		sortType:   sortTypeEmail,
+		headerMap:  make(map[string]int),
 	}
-	defer os.Remove("output.csv")
+	input := new(bytes.Buffer)
+	err := populateInput(input, 10)
 	if err != nil {
-		b.Fatal(err.Error())
+		t.Fatal(err.Error())
 	}
-}
-
-func BenchmarkSort_100K(b *testing.B) {
-	b.StopTimer()
-	createInputFile(inputFile, 100000)
-	b.StartTimer()
-	defer os.Remove(inputFile)
-	var err error
-	for i := 0; i < b.N; i++ {
-		err = sorter.Sort(inputFile, "output.csv")
-	}
-	defer os.Remove("output.csv")
+	output := new(bytes.Buffer)
+	err = e.sort(input, output)
 	if err != nil {
-		b.Fatal(err.Error())
+		t.Fatal(err.Error())
+	}
+	isSorted, err := isSorted(output, e.less)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	if !isSorted {
+		t.Fatal("output not sorted")
 	}
 }
 
-func BenchmarkSort_1M(b *testing.B) {
-	b.StopTimer()
-	createInputFile(inputFile, 1000000)
-	b.StartTimer()
-	defer os.Remove(inputFile)
-	var err error
-	for i := 0; i < b.N; i++ {
-		err = sorter.Sort(inputFile, "output.csv")
+func isSorted(b *bytes.Buffer, less Less) (bool, error) {
+	var sortedData [][]string
+	for {
+		line, err := b.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return false, errors.Wrap(err, "read string")
+		}
+		sortedData = append(sortedData, strings.Split(line, ","))
 	}
-	defer os.Remove("output.csv")
-	if err != nil {
-		b.Fatal(err.Error())
+	return sort.IsSorted(&runSorter{
+		data: sortedData,
+		less: less,
+	}), nil
+}
+
+type testRunCreator struct{}
+
+func (tr *testRunCreator) create(chunk [][]string) (reader io.ReadSeeker, deleteFunc func() error, err error) {
+	return bytes.NewReader(convertToByte(chunk)), func() error { return nil }, nil
+}
+
+func convertToByte(chunk [][]string) []byte {
+	b := new(strings.Builder)
+	for _, v := range chunk {
+		b.WriteString(strings.Join(v, ","))
+		b.WriteString("\n")
 	}
+	return []byte(b.String())
 }

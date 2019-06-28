@@ -37,8 +37,10 @@ func TestExtSort(t *testing.T) {
 	}
 }
 
+//check if sorted and duplicates merged
 func isSorted(b *bytes.Buffer, less Less) (bool, error) {
 	var sortedData [][]string
+	var duplicateMap = make(map[string]bool)
 	for {
 		line, err := b.ReadString('\n')
 		if err != nil {
@@ -47,7 +49,13 @@ func isSorted(b *bytes.Buffer, less Less) (bool, error) {
 			}
 			return false, errors.Wrap(err, "read string")
 		}
-		sortedData = append(sortedData, strings.Split(line, ","))
+		email := strings.Split(line, ",")[1]
+		_, ok := duplicateMap[email]
+		if ok {
+			return false, errors.New("duplicate exists")
+		}
+		duplicateMap[email] = true
+		sortedData = append(sortedData)
 	}
 	return sort.IsSorted(&runSorter{
 		data: sortedData,

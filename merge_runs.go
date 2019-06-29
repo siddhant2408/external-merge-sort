@@ -44,7 +44,8 @@ func (e *ExtSort) initiateHeap(iteratorMap map[int]*csv.Reader) (*mergeHeap, map
 			if err != io.EOF {
 				return nil, nil, errors.Wrap(err, "scan file")
 			}
-			return nil, nil, errors.Wrap(err, "read file")
+			i++
+			continue
 		}
 		//no duplicate email/sms should be there in the initial heap
 		if e.eleExists(line, initHeapMap) {
@@ -78,6 +79,10 @@ func (e *ExtSort) processKWayMerge(dst io.Writer, h *mergeHeap, iteratorMap map[
 			runsCompleted++
 			//pop min and push MAX_ELE to heap
 			poppedEle := heap.Pop(h).(*heapData)
+			//end process if min element = maxVal
+			if poppedEle == maxVal {
+				break
+			}
 			bytesRead += e.getLineMemSize(poppedEle.data)
 			err := csvWriter.Write(poppedEle.data)
 			if err != nil {

@@ -13,7 +13,6 @@ import (
 func TestExtSort(t *testing.T) {
 	e := &ExtSort{
 		memLimit:   minMemLimit,
-		less:       compareEmail,
 		runCreator: &testRunCreator{},
 		sortType:   sortTypeEmail,
 		headerMap:  make(map[string]int),
@@ -28,7 +27,7 @@ func TestExtSort(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	isSorted, err := isSorted(output, e.less)
+	isSorted, err := isSorted(output, e.headerMap[e.sortType])
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -38,7 +37,7 @@ func TestExtSort(t *testing.T) {
 }
 
 //check if sorted and duplicates merged
-func isSorted(b *bytes.Buffer, less Less) (bool, error) {
+func isSorted(b *bytes.Buffer, compareKeyIndex int) (bool, error) {
 	var sortedData [][]string
 	var duplicateMap = make(map[string]bool)
 	for {
@@ -49,7 +48,7 @@ func isSorted(b *bytes.Buffer, less Less) (bool, error) {
 			}
 			return false, errors.Wrap(err, "read string")
 		}
-		email := strings.Split(line, ",")[1]
+		email := strings.Split(line, ",")[compareKeyIndex]
 		_, ok := duplicateMap[email]
 		if ok {
 			return false, errors.New("duplicate exists")
@@ -58,8 +57,8 @@ func isSorted(b *bytes.Buffer, less Less) (bool, error) {
 		sortedData = append(sortedData)
 	}
 	return sort.IsSorted(&runSorter{
-		data: sortedData,
-		less: less,
+		data:            sortedData,
+		compareKeyIndex: compareKeyIndex,
 	}), nil
 }
 

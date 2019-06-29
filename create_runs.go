@@ -18,7 +18,7 @@ func (e *ExtSort) createRuns(reader io.Reader) ([]io.ReadSeeker, []func() error,
 	}
 	isEOF := false
 	sorter := &runSorter{
-		less: e.less,
+		compareKeyIndex: e.headerMap[e.sortType],
 	}
 	for !isEOF {
 		sorter.data, isEOF, err = e.getChunk(csvReader)

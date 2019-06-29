@@ -17,15 +17,15 @@ func main() {
 	inputFile := "input.csv"
 	outputFile := "output.csv"
 
-	createInputFile(inputFile, 100000)
-	err := New(0, compareEmail, sortTypeEmail, false).Sort(inputFile, outputFile)
+	createInputFile(inputFile, 1000)
+	err := New(0, sortTypeEmail, false).Sort(inputFile, outputFile)
 	if err != nil {
 		fmt.Println(err)
 	}
 }
 
-func compareEmail(a, b []string) (bool, error) {
-	res := strings.Compare(a[1], b[1])
+func compare(a, b string) (bool, error) {
+	res := strings.Compare(a, b)
 	if res == -1 {
 		return true, nil
 	} else if res == 1 {

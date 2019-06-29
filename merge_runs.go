@@ -34,8 +34,8 @@ func (e *ExtSort) initiateHeap(iteratorMap map[int]*csv.Reader) (*mergeHeap, map
 	//build map using merge strategy here too
 	initHeapMap := make(map[string]bool)
 	h := &mergeHeap{
-		heapData: make([]*heapData, 0),
-		less:     e.less,
+		heapData:        make([]*heapData, 0),
+		compareKeyIndex: e.headerMap[e.sortType],
 	}
 	for i := 0; i < len(iteratorMap); {
 		reader := iteratorMap[i]

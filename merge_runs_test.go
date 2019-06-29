@@ -14,7 +14,6 @@ func TestMergeRunsDiffEmail(t *testing.T) {
 	}
 	e := &ExtSort{
 		memLimit: minMemLimit,
-		less:     compareEmail,
 		sortType: sortTypeEmail,
 		headerMap: map[string]int{
 			"email": 1,
@@ -24,6 +23,13 @@ func TestMergeRunsDiffEmail(t *testing.T) {
 	err := e.mergeRuns(runs, out)
 	if err != nil {
 		t.Fatal(err.Error())
+	}
+	isSorted, err := isSorted(out, e.headerMap[e.sortType])
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	if !isSorted {
+		t.Fatal("output not sorted")
 	}
 }
 
@@ -34,7 +40,6 @@ func TestMergeRunsSameEmail(t *testing.T) {
 	}
 	e := &ExtSort{
 		memLimit: minMemLimit,
-		less:     compareEmail,
 		sortType: sortTypeEmail,
 		headerMap: map[string]int{
 			"email": 1,
@@ -44,29 +49,43 @@ func TestMergeRunsSameEmail(t *testing.T) {
 	err := e.mergeRuns(runs, out)
 	if err != nil {
 		t.Fatal(err.Error())
+	}
+	isSorted, err := isSorted(out, e.headerMap[e.sortType])
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	if !isSorted {
+		t.Fatal("output not sorted")
 	}
 }
 
 func TestMergeDuplicates(t *testing.T) {
 	runData := []string{
-		fmt.Sprintf("1,test@sendinblue.com,sid,20\n"),
-		fmt.Sprintf("2,test@sendinblue.com,,20\n"),
+		"1,test@sendinblue.com,,20\n",
+		"2,test@sendinblue.com,test,20\n",
 	}
 	var runs = make([]io.ReadSeeker, 2)
-	for i := 0; i < 1; i++ {
+	for i := 0; i < 2; i++ {
 		runs[i] = bytes.NewReader([]byte(runData[i]))
 	}
 	e := &ExtSort{
 		memLimit: minMemLimit,
-		less:     compareEmail,
 		sortType: sortTypeEmail,
 		headerMap: map[string]int{
 			"email": 1,
 		},
+		importEmpty: true,
 	}
 	out := new(bytes.Buffer)
 	err := e.mergeRuns(runs, out)
 	if err != nil {
 		t.Fatal(err.Error())
+	}
+	line, err := out.ReadString('\n')
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	if line != runData[0] {
+		t.Fatal("incorrect duplicate merge")
 	}
 }

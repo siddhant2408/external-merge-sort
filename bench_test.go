@@ -11,7 +11,7 @@ var (
 )
 
 func init() {
-	sorter = New(0, compareEmail, "email", true)
+	sorter = New(0, "email", true)
 }
 
 func BenchmarkSort_10K(b *testing.B) {

@@ -13,13 +13,9 @@ const (
 	sortTypeSMS   = "sms"
 )
 
-//Less compares two csv lines
-type Less func(a, b []string) (bool, error)
-
 //ExtSort is the sorting service
 type ExtSort struct {
 	memLimit   int
-	less       Less
 	runCreator interface {
 		create(chunk [][]string) (reader io.ReadSeeker, deleteFunc func() error, err error)
 	}
@@ -32,13 +28,12 @@ type ExtSort struct {
 }
 
 //New returns the interface for external sort
-func New(memLimit int, less Less, sortType string, importEmpty bool) *ExtSort {
+func New(memLimit int, sortType string, importEmpty bool) *ExtSort {
 	if memLimit < minMemLimit {
 		memLimit = minMemLimit
 	}
 	return &ExtSort{
 		memLimit:    memLimit,
-		less:        less,
 		runCreator:  newRunCreator(),
 		sortType:    sortType,
 		headerMap:   make(map[string]int),

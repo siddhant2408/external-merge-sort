@@ -36,7 +36,7 @@ func TestMergeRunsDiffEmail(t *testing.T) {
 func TestMergeRunsSameEmail(t *testing.T) {
 	var runs = make([]io.ReadSeeker, 3)
 	for i := 0; i < 3; i++ {
-		runs[i] = bytes.NewReader([]byte(fmt.Sprintf("%d,test@sendinblue.com\n", i)))
+		runs[i] = bytes.NewReader([]byte(fmt.Sprintf("%d,test@sendinblue.com", i)))
 	}
 	e := &ExtSort{
 		memLimit: minMemLimit,
@@ -50,24 +50,17 @@ func TestMergeRunsSameEmail(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	isSorted, err := isSorted(out, e.headerMap[e.sortType])
+	expected := "0,test@sendinblue.com\n"
+	actual, err := out.ReadString('\n')
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	if !isSorted {
-		t.Fatal("output not sorted")
+	if expected != actual {
+		t.Fatalf("unexpected output, expected %s, got %s", expected, actual)
 	}
 }
 
-func TestMergeDuplicates(t *testing.T) {
-	runData := []string{
-		"1,test@sendinblue.com,,20\n",
-		"2,test@sendinblue.com,test,20\n",
-	}
-	var runs = make([]io.ReadSeeker, 2)
-	for i := 0; i < 2; i++ {
-		runs[i] = bytes.NewReader([]byte(runData[i]))
-	}
+func TestMergeDuplicatesAllowEmptyImport(t *testing.T) {
 	e := &ExtSort{
 		memLimit: minMemLimit,
 		sortType: sortTypeEmail,
@@ -76,16 +69,36 @@ func TestMergeDuplicates(t *testing.T) {
 		},
 		importEmpty: true,
 	}
-	out := new(bytes.Buffer)
-	err := e.mergeRuns(runs, out)
-	if err != nil {
-		t.Fatal(err.Error())
+	newEle := []string{"1", "test@sendinblue.com", "", "30"}
+	heapEle := []string{"2", "test@sendinblue.com", "test", "20"}
+
+	expected := []string{"1", "test@sendinblue.com", "", "30"}
+	actual := e.getMergedValue(newEle, heapEle)
+
+	for i, v := range actual {
+		if expected[i] != v {
+			t.Fatal("incorrect merge")
+		}
 	}
-	line, err := out.ReadString('\n')
-	if err != nil {
-		t.Fatal(err.Error())
+}
+
+func TestMergeDuplicatesNoEmptyImport(t *testing.T) {
+	e := &ExtSort{
+		memLimit: minMemLimit,
+		sortType: sortTypeEmail,
+		headerMap: map[string]int{
+			"email": 1,
+		},
 	}
-	if line != runData[0] {
-		t.Fatal("incorrect duplicate merge")
+	newEle := []string{"1", "test@sendinblue.com", "", "20"}
+	heapEle := []string{"2", "test@sendinblue.com", "test", "20"}
+
+	expected := []string{"1", "test@sendinblue.com", "test", "20"}
+	actual := e.getMergedValue(newEle, heapEle)
+
+	for i, v := range actual {
+		if expected[i] != v {
+			t.Fatal("incorrect merge")
+		}
 	}
 }

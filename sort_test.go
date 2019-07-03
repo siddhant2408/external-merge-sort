@@ -2,26 +2,40 @@ package main
 
 import (
 	"bytes"
+	"encoding/csv"
+	"fmt"
 	"io"
-	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/pkg/errors"
 )
 
-func TestExtSort(t *testing.T) {
+func TestExtSortDiffEmails(t *testing.T) {
 	e := &ExtSort{
 		memLimit:   minMemLimit,
 		runCreator: &testRunCreator{},
 		sortType:   sortTypeEmail,
 		headerMap:  make(map[string]int),
 	}
+
+	//prepare input
+	var data [][]string
+	data = append(data, []string{"id", "email", "name", "gender"})
+	for i := 0; i < 5; i++ {
+		data = append(data, []string{
+			strconv.Itoa(i),
+			fmt.Sprintf("test+%d@sendinblue.com", i),
+			"test",
+			"male"})
+	}
 	input := new(bytes.Buffer)
-	err := populateInput(input, 10)
+	err := csv.NewWriter(input).WriteAll(data)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
+
 	output := new(bytes.Buffer)
 	err = e.sort(input, output)
 	if err != nil {
@@ -36,10 +50,119 @@ func TestExtSort(t *testing.T) {
 	}
 }
 
+func TestExtSortSameEmails(t *testing.T) {
+	e := &ExtSort{
+		memLimit:   minMemLimit,
+		runCreator: &testRunCreator{},
+		sortType:   sortTypeEmail,
+		headerMap:  make(map[string]int),
+	}
+
+	//prepare input
+	var data [][]string
+	data = append(data, []string{"id", "email", "name", "gender"})
+	for i := 0; i < 5; i++ {
+		data = append(data, []string{
+			strconv.Itoa(i),
+			"test@sendinblue.com",
+			"test",
+			"male",
+		})
+	}
+	input := new(bytes.Buffer)
+	err := csv.NewWriter(input).WriteAll(data)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	out := new(bytes.Buffer)
+	err = e.sort(input, out)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	expected := "0,test@sendinblue.com,test,male\n"
+	actual, err := out.ReadString('\n')
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	if expected != actual {
+		t.Fatalf("unexpected output, expected %s, got %s", expected, actual)
+	}
+}
+
+func TestExtSortDuplicateEmails(t *testing.T) {
+	e := &ExtSort{
+		memLimit:   minMemLimit,
+		runCreator: &testRunCreator{},
+		sortType:   sortTypeEmail,
+		headerMap:  make(map[string]int),
+	}
+
+	//prepare input
+	var data = [][]string{
+		{"id", "email", "name", "gender"},
+		{"1", "test+1@sendinblue.com", "test", "male"},
+		{"2", "test+1@sendinblue.com", "test", "male"},
+		{"3", "test+2@sedinblue.com", "test", "male"},
+		{"4", "test+3@sendinblue.com", "test", "male"},
+	}
+	input := new(bytes.Buffer)
+	err := csv.NewWriter(input).WriteAll(data)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	out := new(bytes.Buffer)
+	err = e.sort(input, out)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	isSorted, err := isSorted(out, e.headerMap[e.sortType])
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	if !isSorted {
+		t.Fatal("output not sorted")
+	}
+}
+
+func TestExtSortSingleEmail(t *testing.T) {
+	e := &ExtSort{
+		memLimit:   minMemLimit,
+		runCreator: &testRunCreator{},
+		sortType:   sortTypeEmail,
+		headerMap:  make(map[string]int),
+	}
+
+	//prepare input
+	var data = [][]string{
+		{"id", "email", "name", "gender"},
+		{"1", "test+1@sendinblue.com", "test", "male"},
+	}
+	input := new(bytes.Buffer)
+	err := csv.NewWriter(input).WriteAll(data)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	out := new(bytes.Buffer)
+	err = e.sort(input, out)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	expected := "1,test+1@sendinblue.com,test,male\n"
+	actual, err := out.ReadString('\n')
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	if expected != actual {
+		t.Fatalf("unexpected output, expected %s, got %s", expected, actual)
+	}
+}
+
 //check if sorted and duplicates merged
 func isSorted(b *bytes.Buffer, compareKeyIndex int) (bool, error) {
-	var sortedData [][]string
-	var duplicateMap = make(map[string]bool)
+	var prevVal string
 	for {
 		line, err := b.ReadString('\n')
 		if err != nil {
@@ -48,18 +171,16 @@ func isSorted(b *bytes.Buffer, compareKeyIndex int) (bool, error) {
 			}
 			return false, errors.Wrap(err, "read string")
 		}
-		email := strings.Split(line, ",")[compareKeyIndex]
-		_, ok := duplicateMap[email]
-		if ok {
-			return false, errors.New("duplicate exists")
+		curVal := strings.Split(line, ",")[compareKeyIndex]
+		if prevVal == "" {
+			prevVal = curVal
+			continue
 		}
-		duplicateMap[email] = true
-		sortedData = append(sortedData)
+		if curVal <= prevVal {
+			return false, nil
+		}
 	}
-	return sort.IsSorted(&runSorter{
-		data:            sortedData,
-		compareKeyIndex: compareKeyIndex,
-	}), nil
+	return true, nil
 }
 
 type testRunCreator struct{}

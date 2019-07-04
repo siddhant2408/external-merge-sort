@@ -160,6 +160,58 @@ func TestExtSortSingleEmail(t *testing.T) {
 	}
 }
 
+func TestExtSortEmptyCSV(t *testing.T) {
+	e := &ExtSort{
+		memLimit:   minMemLimit,
+		runCreator: &testRunCreator{},
+		sortType:   sortTypeEmail,
+		headerMap:  make(map[string]int),
+	}
+
+	input := new(bytes.Buffer)
+	out := new(bytes.Buffer)
+	err := e.sort(input, out)
+	if err == nil {
+		t.Fatal("no error")
+	}
+}
+
+func TestExtSortSingleAttribute(t *testing.T) {
+	e := &ExtSort{
+		memLimit:   minMemLimit,
+		runCreator: &testRunCreator{},
+		sortType:   sortTypeEmail,
+		headerMap:  make(map[string]int),
+	}
+
+	//prepare input
+	var data = [][]string{
+		{"email"},
+		{"test+1@sendinblue.com"},
+		{"test+1@sendinblue.com"},
+		{"test+2@sedinblue.com"},
+		{"test+3@sendinblue.com"},
+	}
+	input := new(bytes.Buffer)
+	err := csv.NewWriter(input).WriteAll(data)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	out := new(bytes.Buffer)
+	err = e.sort(input, out)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	isSorted, err := isSorted(out, e.headerMap[e.sortType])
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	if !isSorted {
+		t.Fatal("output not sorted")
+	}
+}
+
 //check if sorted and duplicates merged
 func isSorted(b *bytes.Buffer, compareKeyIndex int) (bool, error) {
 	var prevVal string

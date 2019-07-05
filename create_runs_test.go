@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/csv"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"strconv"
 	"testing"
 )
@@ -113,5 +115,50 @@ func TestCreateRunsWithDuplicateEmails(t *testing.T) {
 	}
 	if runs == nil {
 		t.Fatal("no run created")
+	}
+}
+
+func BenchmarkCreateMultipleRuns(b *testing.B) {
+	e := &ExtSort{
+		memLimit:   minMemLimit,
+		runCreator: &runCreator{},
+		sortType:   sortTypeEmail,
+		headerMap:  make(map[string]int),
+	}
+
+	//prepare input
+	var data [][]string
+	data = append(data, []string{"id", "email", "name", "gender"})
+	for i := 0; i < 100000; i++ {
+		data = append(data, []string{
+			strconv.Itoa(i),
+			fmt.Sprintf("test+%d@sendinblue.com", i),
+			"test",
+			"male"})
+	}
+	f, err := ioutil.TempFile(os.TempDir(), "")
+	if err != nil {
+		b.Fatal(err.Error())
+	}
+	defer os.Remove(f.Name())
+	err = csv.NewWriter(f).WriteAll(data)
+	if err != nil {
+		b.Fatal(err.Error())
+	}
+	f.Seek(0, 0)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		runs, deleteFunc, err := e.createRuns(f)
+		if err != nil {
+			b.Fatal(err.Error())
+		}
+		if deleteFunc == nil {
+			b.Fatal("nil delete functions")
+		}
+		if runs == nil {
+			b.Fatal("no run created")
+		}
+		e.deleteCreatedRuns(deleteFunc)
+		f.Seek(0, 0)
 	}
 }

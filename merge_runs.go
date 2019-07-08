@@ -174,21 +174,31 @@ func (e *ExtSort) mergeEle(h *mergeHeap, heapEle *heapData) {
 	}
 }
 
+//in case of allow empty import, always pick the new element
+//in case of no empty import, always pick the element with no empty attributes, new over old
 func (e *ExtSort) getMergedValue(newEle []string, heapEle []string) []string {
 	mergedEle := make([]string, len(heapEle))
 	copy(mergedEle, heapEle)
 	for i, _ := range newEle {
-		if newEle[i] == "" && mergedEle[i] != "" {
-			if e.importEmpty {
-				mergedEle[i] = newEle[i]
-			}
-		} else if newEle[i] != "" && mergedEle[i] == "" {
-			if !e.importEmpty {
-				mergedEle[i] = newEle[i]
-			}
-		} else {
+		if e.importEmpty {
 			mergedEle[i] = newEle[i]
+		} else {
+			//reject update id new ele contains empty attributes
+			if emptyAttributeExists(newEle) {
+				return mergedEle
+			} else {
+				mergedEle[i] = newEle[i]
+			}
 		}
 	}
 	return mergedEle
+}
+
+func emptyAttributeExists(newEle []string) bool {
+	for _, v := range newEle {
+		if v == "" {
+			return true
+		}
+	}
+	return false
 }

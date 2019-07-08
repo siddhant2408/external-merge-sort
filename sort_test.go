@@ -3,212 +3,99 @@ package main
 import (
 	"bytes"
 	"encoding/csv"
-	"fmt"
 	"io"
-	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/pkg/errors"
 )
 
-func TestExtSortDiffEmails(t *testing.T) {
-	e := &ExtSort{
-		memLimit:   minMemLimit,
-		runCreator: &testRunCreator{},
-		sortType:   sortTypeEmail,
-		headerMap:  make(map[string]int),
-	}
-
-	//prepare input
-	var data [][]string
-	data = append(data, []string{"id", "email", "name", "gender"})
-	for i := 0; i < 5; i++ {
-		data = append(data, []string{
-			strconv.Itoa(i),
-			fmt.Sprintf("test+%d@sendinblue.com", i),
-			"test",
-			"male"})
-	}
-	input := new(bytes.Buffer)
-	err := csv.NewWriter(input).WriteAll(data)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	output := new(bytes.Buffer)
-	err = e.sort(input, output)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	isSorted, err := isSorted(output, e.headerMap[e.sortType])
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	if !isSorted {
-		t.Fatal("output not sorted")
-	}
+type testExtSort struct {
+	name string
+	data [][]string
 }
 
-func TestExtSortSameEmails(t *testing.T) {
+func TestExternalSortSuccess(t *testing.T) {
 	e := &ExtSort{
 		memLimit:   minMemLimit,
 		runCreator: &testRunCreator{},
 		sortType:   sortTypeEmail,
 		headerMap:  make(map[string]int),
 	}
+	for _, tc := range []testExtSort{
+		{
+			name: "Different Emails",
+			data: [][]string{
+				{"id", "email", "name", "gender"},
+				{"1", "test+1@sendinblue.com", "test", "male"},
+				{"2", "test+2@sendinblue.com", "test2", "male"},
+				{"3", "test+3@sendinblue.com", "test3", "male"},
+			},
+		},
+		{
+			name: "Same Emails",
+			data: [][]string{
+				{"id", "email", "name", "gender"},
+				{"1", "test@sendinblue.com", "test", "male"},
+				{"2", "test@sendinblue.com", "test2", "male"},
+				{"3", "test@sendinblue.com", "test3", "male"},
+			},
+		},
+		{
+			name: "Some Duplicate Emails",
+			data: [][]string{
+				{"id", "email", "name", "gender"},
+				{"1", "test+1@sendinblue.com", "test", "male"},
+				{"2", "test+1@sendinblue.com", "test", "male"},
+				{"3", "test+2@sedinblue.com", "test", "male"},
+				{"4", "test+3@sendinblue.com", "test", "male"},
+			},
+		},
+		{
+			name: "Single Email",
+			data: [][]string{
+				{"id", "email", "name", "gender"},
+				{"1", "test+1@sendinblue.com", "test", "male"},
+			},
+		},
+		{
+			name: "Single Attribute",
+			data: [][]string{
+				{"email"},
+				{"test+1@sendinblue.com"},
+				{"test+1@sendinblue.com"},
+				{"test+2@sedinblue.com"},
+				{"test+3@sendinblue.com"},
+			},
+		},
+		{
+			name: "Special Characters",
+			data: [][]string{
+				{"id", "email", "name", "gender"},
+				{"1", "test+&^$(''@sendinblue.com", "test", "male"},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			input := new(bytes.Buffer)
+			err := csv.NewWriter(input).WriteAll(tc.data)
+			if err != nil {
+				t.Fatal(err.Error())
+			}
 
-	//prepare input
-	var data [][]string
-	data = append(data, []string{"id", "email", "name", "gender"})
-	for i := 0; i < 5; i++ {
-		data = append(data, []string{
-			strconv.Itoa(i),
-			"test@sendinblue.com",
-			"test",
-			"male",
+			output := new(bytes.Buffer)
+			err = e.sort(input, output)
+			if err != nil {
+				t.Fatal(err.Error())
+			}
+			isSorted, err := isSorted(output, e.headerMap[e.sortType])
+			if err != nil {
+				t.Fatal(err.Error())
+			}
+			if !isSorted {
+				t.Fatal("output not sorted")
+			}
 		})
-	}
-	input := new(bytes.Buffer)
-	err := csv.NewWriter(input).WriteAll(data)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	out := new(bytes.Buffer)
-	err = e.sort(input, out)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	expected := "0,test@sendinblue.com,test,male\n"
-	actual, err := out.ReadString('\n')
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	if expected != actual {
-		t.Fatalf("unexpected output, expected %s, got %s", expected, actual)
-	}
-}
-
-func TestExtSortDuplicateEmails(t *testing.T) {
-	e := &ExtSort{
-		memLimit:   minMemLimit,
-		runCreator: &testRunCreator{},
-		sortType:   sortTypeEmail,
-		headerMap:  make(map[string]int),
-	}
-
-	//prepare input
-	var data = [][]string{
-		{"id", "email", "name", "gender"},
-		{"1", "test+1@sendinblue.com", "test", "male"},
-		{"2", "test+1@sendinblue.com", "test", "male"},
-		{"3", "test+2@sedinblue.com", "test", "male"},
-		{"4", "test+3@sendinblue.com", "test", "male"},
-	}
-	input := new(bytes.Buffer)
-	err := csv.NewWriter(input).WriteAll(data)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	out := new(bytes.Buffer)
-	err = e.sort(input, out)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	isSorted, err := isSorted(out, e.headerMap[e.sortType])
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	if !isSorted {
-		t.Fatal("output not sorted")
-	}
-}
-
-func TestExtSortSingleEmail(t *testing.T) {
-	e := &ExtSort{
-		memLimit:   minMemLimit,
-		runCreator: &testRunCreator{},
-		sortType:   sortTypeEmail,
-		headerMap:  make(map[string]int),
-	}
-
-	//prepare input
-	var data = [][]string{
-		{"id", "email", "name", "gender"},
-		{"1", "test+1@sendinblue.com", "test", "male"},
-	}
-	input := new(bytes.Buffer)
-	err := csv.NewWriter(input).WriteAll(data)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	out := new(bytes.Buffer)
-	err = e.sort(input, out)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	expected := "1,test+1@sendinblue.com,test,male\n"
-	actual, err := out.ReadString('\n')
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	if expected != actual {
-		t.Fatalf("unexpected output, expected %s, got %s", expected, actual)
-	}
-}
-
-func TestExtSortEmptyCSV(t *testing.T) {
-	e := &ExtSort{
-		memLimit:   minMemLimit,
-		runCreator: &testRunCreator{},
-		sortType:   sortTypeEmail,
-		headerMap:  make(map[string]int),
-	}
-
-	input := new(bytes.Buffer)
-	out := new(bytes.Buffer)
-	err := e.sort(input, out)
-	if err == nil {
-		t.Fatal("no error")
-	}
-}
-
-func TestExtSortSingleAttribute(t *testing.T) {
-	e := &ExtSort{
-		memLimit:   minMemLimit,
-		runCreator: &testRunCreator{},
-		sortType:   sortTypeEmail,
-		headerMap:  make(map[string]int),
-	}
-
-	//prepare input
-	var data = [][]string{
-		{"email"},
-		{"test+1@sendinblue.com"},
-		{"test+1@sendinblue.com"},
-		{"test+2@sedinblue.com"},
-		{"test+3@sendinblue.com"},
-	}
-	input := new(bytes.Buffer)
-	err := csv.NewWriter(input).WriteAll(data)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	out := new(bytes.Buffer)
-	err = e.sort(input, out)
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	isSorted, err := isSorted(out, e.headerMap[e.sortType])
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	if !isSorted {
-		t.Fatal("output not sorted")
 	}
 }
 

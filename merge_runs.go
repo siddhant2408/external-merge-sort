@@ -180,15 +180,8 @@ func (e *ExtSort) getMergedValue(newEle []string, heapEle []string) []string {
 	mergedEle := make([]string, len(heapEle))
 	copy(mergedEle, heapEle)
 	for i, _ := range newEle {
-		if e.importEmpty {
+		if newEle[i] != "" || e.importEmpty {
 			mergedEle[i] = newEle[i]
-		} else {
-			//reject update id new ele contains empty attributes
-			if emptyAttributeExists(newEle) {
-				return mergedEle
-			} else {
-				mergedEle[i] = newEle[i]
-			}
 		}
 	}
 	return mergedEle

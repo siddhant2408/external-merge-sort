@@ -1,8 +1,9 @@
-package main
+package extsort
 
 import (
 	"io"
 	"os"
+	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -73,4 +74,14 @@ func (e *ExtSort) sort(src io.Reader, dst io.Writer) error {
 		return errors.Wrap(err, "merge runs")
 	}
 	return nil
+}
+
+func compare(a, b string) (bool, error) {
+	res := strings.Compare(a, b)
+	if res == -1 {
+		return true, nil
+	} else if res == 1 {
+		return false, nil
+	}
+	return false, nil
 }

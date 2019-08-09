@@ -35,7 +35,7 @@ func (e *ExtSort) initiateHeap(iteratorMap map[int]*csv.Reader) (*mergeHeap, map
 	initHeapMap := make(map[string]bool)
 	h := &mergeHeap{
 		heapData:        make([]*heapData, 0),
-		compareKeyIndex: e.headerMap[e.sortType],
+		compareKeyIndex: e.headerMap[e.SortType],
 	}
 	for i := 0; i < len(iteratorMap); {
 		reader := iteratorMap[i]
@@ -54,7 +54,7 @@ func (e *ExtSort) initiateHeap(iteratorMap map[int]*csv.Reader) (*mergeHeap, map
 			})
 			continue
 		}
-		initHeapMap[line[e.headerMap[e.sortType]]] = true
+		initHeapMap[line[e.headerMap[e.SortType]]] = true
 		heap.Push(h, &heapData{
 			data:  line,
 			runID: i,
@@ -104,7 +104,7 @@ func (e *ExtSort) processKWayMerge(dst io.Writer, h *mergeHeap, iteratorMap map[
 				return errors.Wrap(err, "write to csv buffer")
 			}
 			//remove min from heapEleMap
-			index := e.headerMap[e.sortType]
+			index := e.headerMap[e.SortType]
 			delete(heapEleMap, poppedEle.data[index])
 			//push heapEle to heap
 			heap.Push(h, runEle)
@@ -156,7 +156,7 @@ func (e *ExtSort) getMinEleRunID(h *mergeHeap) int {
 }
 
 func (e *ExtSort) eleExists(heapEle []string, heapEleMap map[string]bool) bool {
-	csvKeyIndex := e.headerMap[e.sortType]
+	csvKeyIndex := e.headerMap[e.SortType]
 	_, ok := heapEleMap[heapEle[csvKeyIndex]]
 	return ok
 }
@@ -166,7 +166,7 @@ func (e *ExtSort) mergeEle(h *mergeHeap, heapEle *heapData) {
 		if h.heapData[i] == maxVal {
 			continue
 		}
-		comparisonValIndex := e.headerMap[e.sortType]
+		comparisonValIndex := e.headerMap[e.SortType]
 		if line.data[comparisonValIndex] == heapEle.data[comparisonValIndex] {
 			h.heapData[i].data = e.getMergedValue(line.data, heapEle.data)
 			break
@@ -180,7 +180,7 @@ func (e *ExtSort) getMergedValue(newEle []string, heapEle []string) []string {
 	mergedEle := make([]string, len(heapEle))
 	copy(mergedEle, heapEle)
 	for i, _ := range newEle {
-		if newEle[i] != "" || e.importEmpty {
+		if newEle[i] != "" || e.ImportEmpty {
 			mergedEle[i] = newEle[i]
 		}
 	}

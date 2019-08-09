@@ -19,7 +19,7 @@ func TestExternalSortSuccess(t *testing.T) {
 	e := &ExtSort{
 		memLimit:   minMemLimit,
 		runCreator: &testRunCreator{},
-		sortType:   sortTypeEmail,
+		SortType:   sortTypeEmail,
 		headerMap:  make(map[string]int),
 	}
 	for _, tc := range []testExtSort{
@@ -88,7 +88,7 @@ func TestExternalSortSuccess(t *testing.T) {
 			if err != nil {
 				t.Fatal(err.Error())
 			}
-			isSorted, err := isSorted(output, e.headerMap[e.sortType])
+			isSorted, err := isSorted(output, e.headerMap[e.SortType])
 			if err != nil {
 				t.Fatal(err.Error())
 			}

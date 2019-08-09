@@ -69,7 +69,7 @@ func TestMergeDuplicates(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			e.importEmpty = tc.importEmpty
+			e.ImportEmpty = tc.importEmpty
 			actual := e.getMergedValue(tc.newEle, tc.oldEle)
 			for i, v := range actual {
 				if tc.expectedResult[i] != v {

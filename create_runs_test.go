@@ -14,7 +14,7 @@ func TestCreateSingleRun(t *testing.T) {
 	e := &ExtSort{
 		memLimit:   minMemLimit,
 		runCreator: &testRunCreator{},
-		sortType:   sortTypeEmail,
+		SortType:   sortTypeEmail,
 		headerMap:  make(map[string]int),
 	}
 
@@ -50,7 +50,7 @@ func TestCreateMultipleRuns(t *testing.T) {
 	e := &ExtSort{
 		memLimit:   minMemLimit,
 		runCreator: &testRunCreator{},
-		sortType:   sortTypeEmail,
+		SortType:   sortTypeEmail,
 		headerMap:  make(map[string]int),
 	}
 
@@ -89,7 +89,7 @@ func TestCreateRunsWithDuplicateEmails(t *testing.T) {
 	e := &ExtSort{
 		memLimit:   minMemLimit,
 		runCreator: &testRunCreator{},
-		sortType:   sortTypeEmail,
+		SortType:   sortTypeEmail,
 		headerMap:  make(map[string]int),
 	}
 
@@ -122,7 +122,7 @@ func BenchmarkCreateMultipleRuns(b *testing.B) {
 	e := &ExtSort{
 		memLimit:   minMemLimit,
 		runCreator: &runCreator{},
-		sortType:   sortTypeEmail,
+		SortType:   sortTypeEmail,
 		headerMap:  make(map[string]int),
 	}
 

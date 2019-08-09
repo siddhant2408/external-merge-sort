@@ -20,25 +20,23 @@ type ExtSort struct {
 	runCreator interface {
 		create(chunk [][]string) (reader io.ReadSeeker, deleteFunc func() error, err error)
 	}
-	//email or sms
-	sortType string
 	//map to determine the position of each header
 	headerMap map[string]int
+	//email or sms
+	SortType string
 	//import empty fields
-	importEmpty bool
+	ImportEmpty bool
 }
 
 //New returns the interface for external sort
-func New(memLimit int, sortType string, importEmpty bool) *ExtSort {
+func New(memLimit int) *ExtSort {
 	if memLimit < minMemLimit {
 		memLimit = minMemLimit
 	}
 	return &ExtSort{
-		memLimit:    memLimit,
-		runCreator:  newRunCreator(),
-		sortType:    sortType,
-		headerMap:   make(map[string]int),
-		importEmpty: importEmpty,
+		memLimit:   memLimit,
+		runCreator: newRunCreator(),
+		headerMap:  make(map[string]int),
 	}
 }
 

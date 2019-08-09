@@ -1,4 +1,4 @@
-package main
+package extsort
 
 import (
 	"encoding/csv"
@@ -8,18 +8,17 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (e *ExtSort) createRuns(reader io.Reader) ([]io.ReadWriter, []func() error, error) {
-	runs := make([]io.ReadWriter, 0)
+func (e *ExtSort) createRuns(reader io.Reader) ([]io.ReadSeeker, []func() error, error) {
+	runs := make([]io.ReadSeeker, 0)
 	deleteRuns := make([]func() error, 0)
 	csvReader := csv.NewReader(reader)
-	//read headers
-	_, err := csvReader.Read()
+	err := e.readHeaders(csvReader)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "read csv headers")
 	}
 	isEOF := false
 	sorter := &runSorter{
-		less: e.less,
+		compareKeyIndex: e.headerMap[e.sortType],
 	}
 	for !isEOF {
 		sorter.data, isEOF, err = e.getChunk(csvReader)
@@ -31,19 +30,30 @@ func (e *ExtSort) createRuns(reader io.Reader) ([]io.ReadWriter, []func() error,
 			break
 		}
 		sort.Sort(sorter)
-		run, delete, reset, err := e.flushToRun(sorter.data)
+		run, delete, err := e.runCreator.create(sorter.data)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "flush heap")
 		}
 		runs = append(runs, run)
 		deleteRuns = append(deleteRuns, delete)
-		err = reset()
+		_, err = run.Seek(0, 0)
 		if err != nil {
 			e.deleteCreatedRuns(deleteRuns)
 			return nil, nil, errors.Wrap(err, "reset run")
 		}
 	}
 	return runs, deleteRuns, nil
+}
+
+func (e *ExtSort) readHeaders(csvReader *csv.Reader) error {
+	headers, err := csvReader.Read()
+	if err != nil {
+		return errors.Wrap(err, "read csv headers")
+	}
+	for i, v := range headers {
+		e.headerMap[v] = i
+	}
+	return nil
 }
 
 func (e *ExtSort) getChunk(csvReader *csv.Reader) ([][]string, bool, error) {
@@ -76,19 +86,6 @@ func (e *ExtSort) getLineMemSize(line []string) int {
 		size += len([]byte(val))
 	}
 	return size
-}
-
-func (e *ExtSort) flushToRun(chunk [][]string) (reader io.ReadWriter, deleteFunc func() error, resetFunc func() error, err error) {
-	run, delete, reset, err := e.runCreator.create()
-	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "create read writer")
-	}
-	writer := csv.NewWriter(run)
-	err = writer.WriteAll(chunk)
-	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "write to run")
-	}
-	return run, delete, reset, nil
 }
 
 func (e *ExtSort) deleteCreatedRuns(deleteFuncs []func() error) {

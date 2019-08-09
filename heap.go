@@ -1,4 +1,4 @@
-package main
+package extsort
 
 var maxVal = &heapData{
 	data: nil,
@@ -10,8 +10,8 @@ type heapData struct {
 }
 
 type mergeHeap struct {
-	heapData []*heapData
-	less     func(a, b []string) (bool, error)
+	heapData        []*heapData
+	compareKeyIndex int
 }
 
 func (h *mergeHeap) Len() int { return len(h.heapData) }
@@ -22,7 +22,7 @@ func (h *mergeHeap) Less(i, j int) bool {
 	} else if h.heapData[j] == maxVal {
 		return true
 	}
-	isLess, err := h.less(h.heapData[i].data, h.heapData[j].data)
+	isLess, err := compare(h.heapData[i].data[h.compareKeyIndex], h.heapData[j].data[h.compareKeyIndex])
 	if err != nil {
 		panic(err)
 	}

@@ -1,35 +1,44 @@
-package main
+package extsort
 
 import (
 	"io"
 	"os"
+	"strings"
 
 	"github.com/pkg/errors"
 )
 
-const minMemLimit = 1 << 20
-
-//Less compares two csv lines
-type Less func(a, b []string) (bool, error)
+const (
+	minMemLimit   = 1 << 20
+	sortTypeEmail = "email"
+	sortTypeSMS   = "sms"
+)
 
 //ExtSort is the sorting service
 type ExtSort struct {
 	memLimit   int
-	less       Less
 	runCreator interface {
-		create() (reader io.ReadWriter, deleteFunc func() error, resetFunc func() error, err error)
+		create(chunk [][]string) (reader io.ReadSeeker, deleteFunc func() error, err error)
 	}
+	//email or sms
+	sortType string
+	//map to determine the position of each header
+	headerMap map[string]int
+	//import empty fields
+	importEmpty bool
 }
 
 //New returns the interface for external sort
-func New(memLimit int, less Less) *ExtSort {
+func New(memLimit int, sortType string, importEmpty bool) *ExtSort {
 	if memLimit < minMemLimit {
 		memLimit = minMemLimit
 	}
 	return &ExtSort{
-		memLimit:   memLimit,
-		less:       less,
-		runCreator: newRunCreator(),
+		memLimit:    memLimit,
+		runCreator:  newRunCreator(),
+		sortType:    sortType,
+		headerMap:   make(map[string]int),
+		importEmpty: importEmpty,
 	}
 }
 
@@ -65,4 +74,14 @@ func (e *ExtSort) sort(src io.Reader, dst io.Writer) error {
 		return errors.Wrap(err, "merge runs")
 	}
 	return nil
+}
+
+func compare(a, b string) (bool, error) {
+	res := strings.Compare(a, b)
+	if res == -1 {
+		return true, nil
+	} else if res == 1 {
+		return false, nil
+	}
+	return false, nil
 }

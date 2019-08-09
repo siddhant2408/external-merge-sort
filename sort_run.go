@@ -1,8 +1,8 @@
-package main
+package extsort
 
 type runSorter struct {
-	data [][]string
-	less func(a, b []string) (bool, error)
+	data            [][]string
+	compareKeyIndex int
 }
 
 func (r *runSorter) Len() int {
@@ -10,7 +10,7 @@ func (r *runSorter) Len() int {
 }
 
 func (r *runSorter) Less(i, j int) bool {
-	isLess, err := r.less(r.data[i], r.data[j])
+	isLess, err := compare(r.data[i][r.compareKeyIndex], r.data[j][r.compareKeyIndex])
 	if err != nil {
 		panic(err)
 	}

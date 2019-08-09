@@ -24,14 +24,18 @@ technique is used.
 
 > Merge Phase
 * For that, we will use a min heap. Each heapnode will store the actual entry read from the run and also the *runID* which owns it.
-* Initially, take the first element from each run and add it to the heap. These elements are the min elements for each run.
-   - Loop while the least element (top of the heap) is **INT_MAX**.
-     * Pick the top node from the min heap.
-     * Write the element to the *outputFile*.
-     * Get the *runID* of the popped element. The next element will be picked from the run corresponding to this *runID*.
-     * Read the next item from the run . If it's **EOF**, mark the  item as **INT_MAX**.
-     * Put **INT_MAX** to the top of the heap and heapify.
-* At the end of the Merge Phase **outputFile** will have all the elements in sorted order .
+
+* Initially, take the first element from each run and check if it's already present in the heap. If present, merge it with the heap element, else add it to the heap. With this approach, we can ensure that there are no duplicates(email/sms) in the heap.
+
+* We also keep a map of all the heap elements i.e *heapMap*.
+
+* Loop while the least element (top of the heap) is **MAX_ELE**.
+  * Get the *runID* of the top node from min heap.
+  * Get the *nextElement* from the run file with *runID* fetched above.
+    * If we encounter **EOF**, pop the min element from the heap and add **MAX_ELE** to the heap.
+    * Else, check if *nextElement* is already present in the *heapMap*.
+      * If yes, then merge (*last one wins*) the *nextElement* with the element in the heap.
+      * Else, pop the min element from the heap, push *nextElement* to the heap and update the *heapMap*. 
 
 ## Example
 
@@ -103,26 +107,26 @@ The no is *8* from temp1. Move it to heap.
 
 Pick the least element *6* and move it to outputFile - *1 2 3 4 5 6*. </br>
 Find the next element of the file which owns min element *5*. </br>
-<b> We have see EOF. So mark the read element as <i>INT_MAX </i></b>. </br>
+<b> We have see EOF. So mark the read element as <i>MAX_ELE </i></b>. </br>
 
-       INT_MAX                                 7
+       MAX_ELE                                 7
         /  \                                 /  \
        7    9      Heapify -->              8     9
       /  \                                 / \
-    10   8                               10   INT_MAX
+    10   8                               10   MAX_ELE
 
 Pick the least element *6* and move it to outputFile - *1 2 3 4 5 6 7*. </br>
 If we loop this process, we would reach a point where the heap will look like below
-and the </br> outputFile - *1 2 3 4 5 6 7 8 9 10*. </br>We would also break at the point when the min element from heap becomes *INT_MAX*.
+and the </br> outputFile - *1 2 3 4 5 6 7 8 9 10*. </br>We would also break at the point when the min element from heap becomes *MAX_ELE*.
 
-                           INT_MAX
+                           MAX_ELE
                             /   \
-                        INT_MAX  INT_MAX
+                        MAX_ELE  MAX_ELE
                         /    \
-                     INT_MAX INT_MAX
+                     MAX_ELE MAX_ELE
 
 **Benchmarks**
 
 | **Input Size**  | **Runs** | **Time Taken** | **Memory Consumed** | **Allocations** |
 | ------------- | ------------- | ------------- | ------------- | ------------- |
-| 1,00,000  | *20* | *88639812* ns/op | *16550994* B/op | *700387* allocs/op|
+| 1,00,000  | *3* | *394* ms/op | *42* MB/op | *500225* allocs/op|

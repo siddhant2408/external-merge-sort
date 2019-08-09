@@ -1,6 +1,7 @@
-package main
+package extsort
 
 import (
+	"encoding/csv"
 	"io"
 	"io/ioutil"
 	"os"
@@ -16,18 +17,18 @@ func newRunCreator() *runCreator {
 	return &runCreator{}
 }
 
-func (rw *runCreator) create() (reader io.ReadWriter, deleteFunc func() error, resetFunc func() error, err error) {
+func (rw *runCreator) create(chunk [][]string) (reader io.ReadSeeker, deleteFunc func() error, err error) {
 	file, err := ioutil.TempFile(os.TempDir(), tempFilePrefix)
 	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "create temp file")
-	}
-	//resetFunc resets the file pointer to the top of the file
-	resetFunc = func() error {
-		_, err := file.Seek(0, 0)
-		return err
+		return nil, nil, errors.Wrap(err, "create temp file")
 	}
 	deleteFunc = func() error {
 		return os.Remove(file.Name())
 	}
-	return file, deleteFunc, resetFunc, nil
+	writer := csv.NewWriter(file)
+	err = writer.WriteAll(chunk)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "write to file")
+	}
+	return file, deleteFunc, nil
 }

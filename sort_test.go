@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/csv"
 	"io"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -11,8 +12,9 @@ import (
 )
 
 type testExtSort struct {
-	name string
-	data [][]string
+	name         string
+	data         [][]string
+	expectedData []string
 }
 
 func TestExternalSortSuccess(t *testing.T) {
@@ -31,6 +33,12 @@ func TestExternalSortSuccess(t *testing.T) {
 				{"2", "test+2@sendinblue.com", "test2", "male"},
 				{"3", "test+3@sendinblue.com", "test3", "male"},
 			},
+			expectedData: []string{
+				"id,email,name,gender",
+				"1,test+1@sendinblue.com,test,male",
+				"2,test+2@sendinblue.com,test2,male",
+				"3,test+3@sendinblue.com,test3,male",
+			},
 		},
 		{
 			name: "Same Emails",
@@ -39,6 +47,10 @@ func TestExternalSortSuccess(t *testing.T) {
 				{"1", "test@sendinblue.com", "test", "male"},
 				{"2", "test@sendinblue.com", "test2", "male"},
 				{"3", "test@sendinblue.com", "test3", "male"},
+			},
+			expectedData: []string{
+				"id,email,name,gender",
+				"1,test@sendinblue.com,test,male",
 			},
 		},
 		{
@@ -50,12 +62,22 @@ func TestExternalSortSuccess(t *testing.T) {
 				{"3", "test+2@sedinblue.com", "test", "male"},
 				{"4", "test+3@sendinblue.com", "test", "male"},
 			},
+			expectedData: []string{
+				"id,email,name,gender",
+				"1,test+1@sendinblue.com,test,male",
+				"3,test+2@sedinblue.com,test,male",
+				"4,test+3@sendinblue.com,test,male",
+			},
 		},
 		{
 			name: "Single Email",
 			data: [][]string{
 				{"id", "email", "name", "gender"},
 				{"1", "test+1@sendinblue.com", "test", "male"},
+			},
+			expectedData: []string{
+				"id,email,name,gender",
+				"1,test+1@sendinblue.com,test,male",
 			},
 		},
 		{
@@ -67,12 +89,22 @@ func TestExternalSortSuccess(t *testing.T) {
 				{"test+2@sedinblue.com"},
 				{"test+3@sendinblue.com"},
 			},
+			expectedData: []string{
+				"email",
+				"test+1@sendinblue.com",
+				"test+2@sedinblue.com",
+				"test+3@sendinblue.com",
+			},
 		},
 		{
 			name: "Special Characters",
 			data: [][]string{
 				{"id", "email", "name", "gender"},
 				{"1", "test+&^$(''@sendinblue.com", "test", "male"},
+			},
+			expectedData: []string{
+				"id,email,name,gender",
+				"1,test+&^$(''@sendinblue.com,test,male",
 			},
 		},
 	} {
@@ -88,6 +120,13 @@ func TestExternalSortSuccess(t *testing.T) {
 			if err != nil {
 				t.Fatal(err.Error())
 			}
+
+			data := bytesToLine(output)
+
+			if !reflect.DeepEqual(data, tc.expectedData) {
+				t.Fatalf("expected %q, got %q", tc.expectedData, data)
+			}
+
 			isSorted, err := isSorted(output, e.headerMap[e.SortType])
 			if err != nil {
 				t.Fatal(err.Error())
@@ -97,6 +136,20 @@ func TestExternalSortSuccess(t *testing.T) {
 			}
 		})
 	}
+}
+
+func bytesToLine(output *bytes.Buffer) []string {
+	data := make([]string, 0)
+	for {
+		line, err := output.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+		}
+		data = append(data, line[:len(line)-1])
+	}
+	return data
 }
 
 //check if sorted and duplicates merged

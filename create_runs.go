@@ -4,15 +4,16 @@ import (
 	"encoding/csv"
 	"io"
 	"sort"
+	"strings"
 
 	"github.com/pkg/errors"
 )
 
-func (e *ExtSort) createRuns(reader io.Reader) ([]io.ReadSeeker, []func() error, error) {
+func (e *ExtSort) createRuns(reader io.Reader, dst io.Writer) ([]io.ReadSeeker, []func() error, error) {
 	runs := make([]io.ReadSeeker, 0)
 	deleteRuns := make([]func() error, 0)
 	csvReader := csv.NewReader(reader)
-	err := e.readHeaders(csvReader)
+	err := e.readHeaders(csvReader, dst)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "read csv headers")
 	}
@@ -45,10 +46,14 @@ func (e *ExtSort) createRuns(reader io.Reader) ([]io.ReadSeeker, []func() error,
 	return runs, deleteRuns, nil
 }
 
-func (e *ExtSort) readHeaders(csvReader *csv.Reader) error {
+func (e *ExtSort) readHeaders(csvReader *csv.Reader, dst io.Writer) error {
 	headers, err := csvReader.Read()
 	if err != nil {
 		return errors.Wrap(err, "read csv headers")
+	}
+	_, err = dst.Write([]byte(strings.Join(headers, string(csvReader.Comma)) + "\n"))
+	if err != nil {
+		return errors.Wrap(err, "write csv headers")
 	}
 	for i, v := range headers {
 		e.headerMap[v] = i

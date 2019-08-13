@@ -34,8 +34,7 @@ func TestCreateSingleRun(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	output := new(bytes.Buffer)
-	runs, deleteFunc, err := e.createRuns(input, output)
+	runs, deleteFunc, err := e.createRuns(input)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -70,8 +69,7 @@ func TestCreateMultipleRuns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	output := new(bytes.Buffer)
-	runs, deleteFunc, err := e.createRuns(input, output)
+	runs, deleteFunc, err := e.createRuns(input)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -106,8 +104,7 @@ func TestCreateRunsWithDuplicateEmails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	output := new(bytes.Buffer)
-	runs, deleteFunc, err := e.createRuns(input, output)
+	runs, deleteFunc, err := e.createRuns(input)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -149,7 +146,7 @@ func BenchmarkCreateMultipleRuns(b *testing.B) {
 	f.Seek(0, 0)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		runs, deleteFunc, err := e.createRuns(f, nil)
+		runs, deleteFunc, err := e.createRuns(f)
 		if err != nil {
 			b.Fatal(err.Error())
 		}

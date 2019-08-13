@@ -18,12 +18,6 @@ type testExtSort struct {
 }
 
 func TestExternalSortSuccess(t *testing.T) {
-	e := &ExtSort{
-		memLimit:   minMemLimit,
-		runCreator: &testRunCreator{},
-		SortType:   sortTypeEmail,
-		headerMap:  make(map[string]int),
-	}
 	for _, tc := range []testExtSort{
 		{
 			name: "Different Emails",
@@ -109,6 +103,12 @@ func TestExternalSortSuccess(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			e := &ExtSort{
+				memLimit:   minMemLimit,
+				runCreator: &testRunCreator{},
+				SortType:   sortTypeEmail,
+				headerMap:  make(map[string]int),
+			}
 			input := new(bytes.Buffer)
 			err := csv.NewWriter(input).WriteAll(tc.data)
 			if err != nil {

@@ -62,7 +62,7 @@ func (e *ExtSort) Sort(srcFile string, dstFile string) error {
 }
 
 func (e *ExtSort) sort(src io.Reader, dst io.Writer) error {
-	runs, deleteRuns, err := e.createRuns(src, dst)
+	runs, deleteRuns, err := e.createRuns(src)
 	if err != nil {
 		return errors.Wrap(err, "create runs")
 	}

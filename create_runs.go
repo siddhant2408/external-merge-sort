@@ -50,9 +50,6 @@ func (e *ExtSort) readHeaders(csvReader *csv.Reader) error {
 	if err != nil {
 		return errors.Wrap(err, "read csv headers")
 	}
-	if err != nil {
-		return errors.Wrap(err, "write csv headers")
-	}
 	for i, v := range headers {
 		e.headerMap[v] = i
 	}

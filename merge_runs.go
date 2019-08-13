@@ -67,6 +67,12 @@ func (e *ExtSort) initiateHeap(iteratorMap map[int]*csv.Reader) (*mergeHeap, map
 func (e *ExtSort) processKWayMerge(dst io.Writer, h *mergeHeap, iteratorMap map[int]*csv.Reader, heapEleMap map[string]bool) error {
 	bytesRead := 0
 	csvWriter := csv.NewWriter(dst)
+
+	err := e.writeHeaders(csvWriter)
+	if err != nil {
+		return errors.Wrap(err, "write header to dst")
+	}
+
 	numRuns := len(iteratorMap)
 	//start iterating on runs and write to output file
 	for runsCompleted := 0; runsCompleted != numRuns; {
@@ -119,11 +125,20 @@ func (e *ExtSort) processKWayMerge(dst io.Writer, h *mergeHeap, iteratorMap map[
 			}
 		}
 	}
-	err := e.flushRemainingBuffer(csvWriter)
+	err = e.flushRemainingBuffer(csvWriter)
 	if err != nil {
 		return errors.Wrap(err, "flush remaining buffer")
 	}
 	return nil
+}
+
+func (e *ExtSort) writeHeaders(csvWriter *csv.Writer) error {
+	headers := make([]string, len(e.headerMap))
+	for value, index := range e.headerMap {
+		headers[index] = value
+	}
+	err := csvWriter.Write(headers)
+	return err
 }
 
 func (e *ExtSort) getValueFromRun(reader *csv.Reader, runID int) (*heapData, bool, error) {

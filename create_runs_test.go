@@ -69,7 +69,6 @@ func TestCreateMultipleRuns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-
 	runs, deleteFunc, err := e.createRuns(input)
 	if err != nil {
 		t.Fatal(err.Error())
@@ -105,7 +104,6 @@ func TestCreateRunsWithDuplicateEmails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-
 	runs, deleteFunc, err := e.createRuns(input)
 	if err != nil {
 		t.Fatal(err.Error())

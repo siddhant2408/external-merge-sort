@@ -14,7 +14,7 @@ func TestCreateSingleRun(t *testing.T) {
 	e := &ExtSort{
 		memLimit:   minMemLimit,
 		runCreator: &testRunCreator{},
-		SortType:   sortTypeEmail,
+		SortType:   "email",
 		headerMap:  make(map[string]int),
 	}
 
@@ -50,7 +50,7 @@ func TestCreateMultipleRuns(t *testing.T) {
 	e := &ExtSort{
 		memLimit:   minMemLimit,
 		runCreator: &testRunCreator{},
-		SortType:   sortTypeEmail,
+		SortType:   "email",
 		headerMap:  make(map[string]int),
 	}
 
@@ -88,7 +88,7 @@ func TestCreateRunsWithDuplicateEmails(t *testing.T) {
 	e := &ExtSort{
 		memLimit:   minMemLimit,
 		runCreator: &testRunCreator{},
-		SortType:   sortTypeEmail,
+		SortType:   "email",
 		headerMap:  make(map[string]int),
 	}
 
@@ -120,7 +120,7 @@ func BenchmarkCreateMultipleRuns(b *testing.B) {
 	e := &ExtSort{
 		memLimit:   minMemLimit,
 		runCreator: &runCreator{},
-		SortType:   sortTypeEmail,
+		SortType:   "email",
 		headerMap:  make(map[string]int),
 	}
 
@@ -143,7 +143,7 @@ func BenchmarkCreateMultipleRuns(b *testing.B) {
 	if err != nil {
 		b.Fatal(err.Error())
 	}
-	f.Seek(0, 0)
+	_, _ = f.Seek(0, 0)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		runs, deleteFunc, err := e.createRuns(f)
@@ -157,6 +157,6 @@ func BenchmarkCreateMultipleRuns(b *testing.B) {
 			b.Fatal("no run created")
 		}
 		e.deleteCreatedRuns(deleteFunc)
-		f.Seek(0, 0)
+		_, _ = f.Seek(0, 0)
 	}
 }

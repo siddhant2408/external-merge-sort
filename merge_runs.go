@@ -194,19 +194,10 @@ func (e *ExtSort) mergeEle(h *mergeHeap, heapEle *heapData) {
 func (e *ExtSort) getMergedValue(newEle []string, heapEle []string) []string {
 	mergedEle := make([]string, len(heapEle))
 	copy(mergedEle, heapEle)
-	for i, _ := range newEle {
+	for i := range newEle {
 		if newEle[i] != "" || e.ImportEmpty {
 			mergedEle[i] = newEle[i]
 		}
 	}
 	return mergedEle
-}
-
-func emptyAttributeExists(newEle []string) bool {
-	for _, v := range newEle {
-		if v == "" {
-			return true
-		}
-	}
-	return false
 }

@@ -2,17 +2,12 @@ package extsort
 
 import (
 	"io"
-	"os"
 	"strings"
 
 	"github.com/pkg/errors"
 )
 
-const (
-	minMemLimit   = 1 << 20
-	sortTypeEmail = "email"
-	sortTypeSMS   = "sms"
-)
+const minMemLimit = 1 << 20
 
 //ExtSort is the sorting service
 type ExtSort struct {
@@ -41,27 +36,7 @@ func New(memLimit int) *ExtSort {
 }
 
 //Sort sorts the srcFile and writes the result in the dstFile
-func (e *ExtSort) Sort(srcFile string, dstFile string) error {
-	src, err := os.Open(srcFile)
-	if err != nil {
-		return errors.Wrap(err, "open source file")
-	}
-	defer src.Close()
-
-	dst, err := os.Create(dstFile)
-	if err != nil {
-		return errors.Wrap(err, "create dst file")
-	}
-	defer dst.Close()
-
-	err = e.sort(src, dst)
-	if err != nil {
-		return errors.Wrap(err, "sort")
-	}
-	return nil
-}
-
-func (e *ExtSort) sort(src io.Reader, dst io.Writer) error {
+func (e *ExtSort) Sort(dst io.Writer, src io.Reader) error {
 	runs, deleteRuns, err := e.createRuns(src)
 	if err != nil {
 		return errors.Wrap(err, "create runs")

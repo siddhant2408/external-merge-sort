@@ -106,7 +106,7 @@ func TestExternalSortSuccess(t *testing.T) {
 			e := &ExtSort{
 				memLimit:   minMemLimit,
 				runCreator: &testRunCreator{},
-				SortType:   sortTypeEmail,
+				SortType:   "email",
 				headerMap:  make(map[string]int),
 			}
 			input := new(bytes.Buffer)
@@ -116,7 +116,7 @@ func TestExternalSortSuccess(t *testing.T) {
 			}
 
 			output := new(bytes.Buffer)
-			err = e.sort(input, output)
+			err = e.Sort(output, input)
 			if err != nil {
 				t.Fatal(err.Error())
 			}

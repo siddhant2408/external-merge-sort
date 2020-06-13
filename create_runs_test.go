@@ -11,11 +11,10 @@ import (
 )
 
 func TestCreateSingleRun(t *testing.T) {
-	e := &ExtSort{
+	e := &extSort{
 		memLimit:   minMemLimit,
 		runCreator: &testRunCreator{},
-		SortType:   "email",
-		headerMap:  make(map[string]int),
+		sortIndex:  1,
 	}
 
 	//prepare input
@@ -47,11 +46,10 @@ func TestCreateSingleRun(t *testing.T) {
 }
 
 func TestCreateMultipleRuns(t *testing.T) {
-	e := &ExtSort{
+	e := &extSort{
 		memLimit:   minMemLimit,
 		runCreator: &testRunCreator{},
-		SortType:   "email",
-		headerMap:  make(map[string]int),
+		sortIndex:  1,
 	}
 
 	//prepare input
@@ -85,11 +83,10 @@ func TestCreateMultipleRuns(t *testing.T) {
 }
 
 func TestCreateRunsWithDuplicateEmails(t *testing.T) {
-	e := &ExtSort{
+	e := &extSort{
 		memLimit:   minMemLimit,
 		runCreator: &testRunCreator{},
-		SortType:   "email",
-		headerMap:  make(map[string]int),
+		sortIndex:  1,
 	}
 
 	//prepare input
@@ -117,11 +114,10 @@ func TestCreateRunsWithDuplicateEmails(t *testing.T) {
 }
 
 func BenchmarkCreateMultipleRuns(b *testing.B) {
-	e := &ExtSort{
+	e := &extSort{
 		memLimit:   minMemLimit,
 		runCreator: &runCreator{},
-		SortType:   "email",
-		headerMap:  make(map[string]int),
+		sortIndex:  1,
 	}
 
 	//prepare input

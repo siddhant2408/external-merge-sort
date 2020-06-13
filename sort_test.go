@@ -20,94 +20,23 @@ type testExtSort struct {
 func TestExternalSortSuccess(t *testing.T) {
 	for _, tc := range []testExtSort{
 		{
-			name: "Different Emails",
+			name: "Success",
 			data: [][]string{
-				{"id", "email", "name", "gender"},
 				{"1", "test+1@sendinblue.com", "test", "male"},
 				{"2", "test+2@sendinblue.com", "test2", "male"},
 				{"3", "test+3@sendinblue.com", "test3", "male"},
 			},
 			expectedData: []string{
-				"id,email,name,gender",
 				"1,test+1@sendinblue.com,test,male",
 				"2,test+2@sendinblue.com,test2,male",
 				"3,test+3@sendinblue.com,test3,male",
 			},
 		},
-		{
-			name: "Same Emails",
-			data: [][]string{
-				{"id", "email", "name", "gender"},
-				{"1", "test@sendinblue.com", "test", "male"},
-				{"2", "test@sendinblue.com", "test2", "male"},
-				{"3", "test@sendinblue.com", "test3", "male"},
-			},
-			expectedData: []string{
-				"id,email,name,gender",
-				"1,test@sendinblue.com,test,male",
-			},
-		},
-		{
-			name: "Some Duplicate Emails",
-			data: [][]string{
-				{"id", "email", "name", "gender"},
-				{"1", "test+1@sendinblue.com", "test", "male"},
-				{"2", "test+1@sendinblue.com", "test", "male"},
-				{"3", "test+2@sedinblue.com", "test", "male"},
-				{"4", "test+3@sendinblue.com", "test", "male"},
-			},
-			expectedData: []string{
-				"id,email,name,gender",
-				"1,test+1@sendinblue.com,test,male",
-				"3,test+2@sedinblue.com,test,male",
-				"4,test+3@sendinblue.com,test,male",
-			},
-		},
-		{
-			name: "Single Email",
-			data: [][]string{
-				{"id", "email", "name", "gender"},
-				{"1", "test+1@sendinblue.com", "test", "male"},
-			},
-			expectedData: []string{
-				"id,email,name,gender",
-				"1,test+1@sendinblue.com,test,male",
-			},
-		},
-		{
-			name: "Single Attribute",
-			data: [][]string{
-				{"email"},
-				{"test+1@sendinblue.com"},
-				{"test+1@sendinblue.com"},
-				{"test+2@sedinblue.com"},
-				{"test+3@sendinblue.com"},
-			},
-			expectedData: []string{
-				"email",
-				"test+1@sendinblue.com",
-				"test+2@sedinblue.com",
-				"test+3@sendinblue.com",
-			},
-		},
-		{
-			name: "Special Characters",
-			data: [][]string{
-				{"id", "email", "name", "gender"},
-				{"1", "test+&^$(''@sendinblue.com", "test", "male"},
-			},
-			expectedData: []string{
-				"id,email,name,gender",
-				"1,test+&^$(''@sendinblue.com,test,male",
-			},
-		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			e := &ExtSort{
+			e := &extSort{
 				memLimit:   minMemLimit,
 				runCreator: &testRunCreator{},
-				SortType:   "email",
-				headerMap:  make(map[string]int),
 			}
 			input := new(bytes.Buffer)
 			err := csv.NewWriter(input).WriteAll(tc.data)
@@ -116,7 +45,7 @@ func TestExternalSortSuccess(t *testing.T) {
 			}
 
 			output := new(bytes.Buffer)
-			err = e.Sort(output, input)
+			err = e.Sort(output, input, 1)
 			if err != nil {
 				t.Fatal(err.Error())
 			}
@@ -127,7 +56,7 @@ func TestExternalSortSuccess(t *testing.T) {
 				t.Fatalf("expected %q, got %q", tc.expectedData, data)
 			}
 
-			isSorted, err := isSorted(output, e.headerMap[e.SortType])
+			isSorted, err := isSorted(output, 1)
 			if err != nil {
 				t.Fatal(err.Error())
 			}

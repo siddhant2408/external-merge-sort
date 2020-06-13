@@ -4,11 +4,12 @@ import (
 	"container/heap"
 	"encoding/csv"
 	"io"
+	"strings"
 
 	"github.com/pkg/errors"
 )
 
-func (e *ExtSort) mergeRuns(runs []io.ReadSeeker, dst io.Writer) error {
+func (e *extSort) mergeRuns(runs []io.ReadSeeker, dst io.Writer) error {
 	iteratorMap := e.getRunIterators(runs)
 	h, initHeapMap, err := e.initiateHeap(iteratorMap)
 	if err != nil {
@@ -21,7 +22,7 @@ func (e *ExtSort) mergeRuns(runs []io.ReadSeeker, dst io.Writer) error {
 	return nil
 }
 
-func (e *ExtSort) getRunIterators(runFiles []io.ReadSeeker) map[int]*csv.Reader {
+func (e *extSort) getRunIterators(runFiles []io.ReadSeeker) map[int]*csv.Reader {
 	iteratorMap := make(map[int]*csv.Reader, len(runFiles))
 	for i, file := range runFiles {
 		iteratorMap[i] = csv.NewReader(file)
@@ -30,12 +31,12 @@ func (e *ExtSort) getRunIterators(runFiles []io.ReadSeeker) map[int]*csv.Reader 
 }
 
 //create a heap with top(min) values from each run
-func (e *ExtSort) initiateHeap(iteratorMap map[int]*csv.Reader) (*mergeHeap, map[string]bool, error) {
+func (e *extSort) initiateHeap(iteratorMap map[int]*csv.Reader) (*mergeHeap, map[string]bool, error) {
 	//build map using merge strategy here too
 	initHeapMap := make(map[string]bool)
 	h := &mergeHeap{
 		heapData:        make([]*heapData, 0),
-		compareKeyIndex: e.headerMap[e.SortType],
+		compareKeyIndex: e.sortIndex,
 	}
 	for i := 0; i < len(iteratorMap); {
 		reader := iteratorMap[i]
@@ -47,14 +48,7 @@ func (e *ExtSort) initiateHeap(iteratorMap map[int]*csv.Reader) (*mergeHeap, map
 			i++
 			continue
 		}
-		//no duplicate email/sms should be there in the initial heap
-		if e.eleExists(line, initHeapMap) {
-			e.mergeEle(h, &heapData{
-				data: line,
-			})
-			continue
-		}
-		initHeapMap[line[e.headerMap[e.SortType]]] = true
+		initHeapMap[line[e.sortIndex]] = true
 		heap.Push(h, &heapData{
 			data:  line,
 			runID: i,
@@ -64,14 +58,9 @@ func (e *ExtSort) initiateHeap(iteratorMap map[int]*csv.Reader) (*mergeHeap, map
 	return h, initHeapMap, nil
 }
 
-func (e *ExtSort) processKWayMerge(dst io.Writer, h *mergeHeap, iteratorMap map[int]*csv.Reader, heapEleMap map[string]bool) error {
+func (e *extSort) processKWayMerge(dst io.Writer, h *mergeHeap, iteratorMap map[int]*csv.Reader, heapEleMap map[string]bool) error {
 	bytesRead := 0
 	csvWriter := csv.NewWriter(dst)
-
-	err := e.writeHeaders(csvWriter)
-	if err != nil {
-		return errors.Wrap(err, "write header to dst")
-	}
 
 	numRuns := len(iteratorMap)
 	//start iterating on runs and write to output file
@@ -97,25 +86,21 @@ func (e *ExtSort) processKWayMerge(dst io.Writer, h *mergeHeap, iteratorMap map[
 			heap.Push(h, maxVal)
 			continue
 		}
-		//if heapEle exists in the heap, merge
-		if e.eleExists(runEle.data, heapEleMap) {
-			e.mergeEle(h, runEle)
-			continue
-		} else {
-			//pop min and print to file
-			poppedEle := heap.Pop(h).(*heapData)
-			bytesRead += e.getLineMemSize(poppedEle.data)
-			err := csvWriter.Write(poppedEle.data)
-			if err != nil {
-				return errors.Wrap(err, "write to csv buffer")
-			}
-			//remove min from heapEleMap
-			index := e.headerMap[e.SortType]
-			delete(heapEleMap, poppedEle.data[index])
-			//push heapEle to heap
-			heap.Push(h, runEle)
-			heapEleMap[runEle.data[index]] = true
+
+		//pop min and print to file
+		poppedEle := heap.Pop(h).(*heapData)
+		bytesRead += e.getLineMemSize(poppedEle.data)
+		err = csvWriter.Write(poppedEle.data)
+		if err != nil {
+			return errors.Wrap(err, "write to csv buffer")
 		}
+		//remove min from heapEleMap
+		index := e.sortIndex
+		delete(heapEleMap, poppedEle.data[index])
+		//push heapEle to heap
+		heap.Push(h, runEle)
+		heapEleMap[runEle.data[index]] = true
+
 		if bytesRead > e.memLimit {
 			bytesRead = 0
 			csvWriter.Flush()
@@ -125,23 +110,14 @@ func (e *ExtSort) processKWayMerge(dst io.Writer, h *mergeHeap, iteratorMap map[
 			}
 		}
 	}
-	err = e.flushRemainingBuffer(csvWriter)
+	err := e.flushRemainingBuffer(csvWriter)
 	if err != nil {
 		return errors.Wrap(err, "flush remaining buffer")
 	}
 	return nil
 }
 
-func (e *ExtSort) writeHeaders(csvWriter *csv.Writer) error {
-	headers := make([]string, len(e.headerMap))
-	for value, index := range e.headerMap {
-		headers[index] = value
-	}
-	err := csvWriter.Write(headers)
-	return err
-}
-
-func (e *ExtSort) getValueFromRun(reader *csv.Reader, runID int) (*heapData, bool, error) {
+func (e *extSort) getValueFromRun(reader *csv.Reader, runID int) (*heapData, bool, error) {
 	line, err := reader.Read()
 	if err != nil {
 		if err != io.EOF {
@@ -156,7 +132,7 @@ func (e *ExtSort) getValueFromRun(reader *csv.Reader, runID int) (*heapData, boo
 	}, false, nil
 }
 
-func (e *ExtSort) flushRemainingBuffer(writer *csv.Writer) error {
+func (e *extSort) flushRemainingBuffer(writer *csv.Writer) error {
 	writer.Flush()
 	err := writer.Error()
 	if err != nil {
@@ -165,39 +141,15 @@ func (e *ExtSort) flushRemainingBuffer(writer *csv.Writer) error {
 	return nil
 }
 
-func (e *ExtSort) getMinEleRunID(h *mergeHeap) int {
+func (e *extSort) getMinEleRunID(h *mergeHeap) int {
 	heapData := h.heapData[0]
 	return heapData.runID
 }
 
-func (e *ExtSort) eleExists(heapEle []string, heapEleMap map[string]bool) bool {
-	csvKeyIndex := e.headerMap[e.SortType]
-	_, ok := heapEleMap[heapEle[csvKeyIndex]]
-	return ok
-}
-
-func (e *ExtSort) mergeEle(h *mergeHeap, heapEle *heapData) {
-	for i, line := range h.heapData {
-		if h.heapData[i] == maxVal {
-			continue
-		}
-		comparisonValIndex := e.headerMap[e.SortType]
-		if line.data[comparisonValIndex] == heapEle.data[comparisonValIndex] {
-			h.heapData[i].data = e.getMergedValue(line.data, heapEle.data)
-			break
-		}
+func compare(a, b string) (bool, error) {
+	res := strings.Compare(a, b)
+	if res == -1 {
+		return true, nil
 	}
-}
-
-//in case of allow empty import, always pick the new element
-//in case of no empty import, always pick the element with no empty attributes, new over old
-func (e *ExtSort) getMergedValue(newEle []string, heapEle []string) []string {
-	mergedEle := make([]string, len(heapEle))
-	copy(mergedEle, heapEle)
-	for i := range newEle {
-		if newEle[i] != "" || e.ImportEmpty {
-			mergedEle[i] = newEle[i]
-		}
-	}
-	return mergedEle
+	return false, nil
 }

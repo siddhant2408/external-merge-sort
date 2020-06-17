@@ -13,7 +13,7 @@ func (e *extSort) createRuns(reader io.Reader) (_ []io.ReadSeeker, _ []func() er
 	runs := make([]io.ReadSeeker, 0)
 	deleteRuns := make([]func() error, 0)
 	csvReader := csv.NewReader(reader)
-
+	csvReader.ReuseRecord = true
 	isEOF := false
 	sorter := &runSorter{
 		compareKeyIndex: e.sortIndex,

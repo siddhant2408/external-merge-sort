@@ -26,6 +26,7 @@ func (e *extSort) getRunIterators(runFiles []io.ReadSeeker) map[int]*csv.Reader 
 	iteratorMap := make(map[int]*csv.Reader, len(runFiles))
 	for i, file := range runFiles {
 		iteratorMap[i] = csv.NewReader(file)
+		iteratorMap[i].ReuseRecord = true
 	}
 	return iteratorMap
 }

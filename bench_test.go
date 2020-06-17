@@ -22,7 +22,7 @@ func init() {
 }
 
 func BenchmarkSort(b *testing.B) {
-	for _, csvSize := range []int{10000, 100000, 1000000} {
+	for _, csvSize := range []int{10000} {
 		b.Run(fmt.Sprintf("csvSize_%d", csvSize), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				benchmarkSort(b, csvSize)
